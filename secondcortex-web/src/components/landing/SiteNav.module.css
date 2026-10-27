@@ -1,0 +1,242 @@
+/* `nav` has a global rule in globals.css, so every property it sets is restated here. */
+.nav {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  z-index: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+@media (min-width: 900px) {
+  .nav {
+    left: 50%;
+    right: auto;
+    width: max-content;
+    max-width: calc(100% - 32px);
+    transform: translateX(-50%);
+    justify-content: flex-start;
+    gap: 24px;
+  }
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.mark {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+
+.links {
+  display: none;
+  gap: 4px;
+  list-style: none;
+}
+
+@media (min-width: 900px) {
+  .links {
+    display: flex;
+  }
+}
+
+.link {
+  display: block;
+  padding: 4px 12px;
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 20px;
+  text-decoration: none;
+  transition:
+    background-color 300ms var(--ease),
+    color 300ms var(--ease);
+}
+
+.link:hover,
+.link[aria-current] {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    background-color 300ms var(--ease),
+    transform 500ms var(--ease);
+}
+
+.small:active {
+  transform: scale(0.98);
+}
+
+.ghost {
+  display: none;
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.ghost:hover {
+  background: var(--hover);
+}
+
+@media (min-width: 900px) {
+  .ghost {
+    display: inline-flex;
+  }
+}
+
+.primary {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.primary:hover {
+  background: #ffffff;
+}
+
+.glyph {
+  font-family: var(--mono);
+  font-weight: 400;
+}
+
+.toggle {
+  position: relative;
+  width: 32px;
+  height: 30px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+}
+
+.toggle span {
+  position: absolute;
+  top: calc(50% - 0.75px);
+  left: 8px;
+  width: 14px;
+  height: 1.5px;
+  background: var(--text);
+  transition: transform 500ms var(--ease);
+}
+
+.toggle span:first-child {
+  transform: translateY(-3px);
+}
+
+.toggle span:last-child {
+  transform: translateY(3px);
+}
+
+.nav[data-open="true"] .toggle span:first-child {
+  transform: rotate(45deg);
+}
+
+.nav[data-open="true"] .toggle span:last-child {
+  transform: rotate(-45deg);
+}
+
+@media (min-width: 900px) {
+  .toggle {
+    display: none;
+  }
+}
+
+.panel {
+  position: fixed;
+  inset: 0;
+  z-index: 550;
+  padding: 96px 16px 32px;
+  background: rgba(0, 0, 0, 0.94);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 300ms var(--ease),
+    visibility 300ms var(--ease);
+}
+
+.panel[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (min-width: 900px) {
+  .panel {
+    display: none;
+  }
+}
+
+.panelLinks {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+}
+
+.panelLinks li {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 500ms var(--ease),
+    transform 500ms var(--ease);
+}
+
+.panel[data-open="true"] .panelLinks li {
+  opacity: 1;
+  transform: none;
+}
+
+.panelLink {
+  display: block;
+  padding: 12px 0;
+  color: var(--text-2);
+  font-family: var(--pixel);
+  font-size: 30px;
+  line-height: 36px;
+  text-decoration: none;
+}
+
+.panelLink:hover,
+.panelLink[aria-current] {
+  color: var(--text);
+}
+
+.panelLink[aria-current]::before {
+  content: "▶ ";
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panelLinks li {
+    transform: none;
+  }
+}
