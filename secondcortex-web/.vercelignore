@@ -1,0 +1,5 @@
+.next-dev
+*.log
+*.mp4
+*.zip
+*.tsbuildinfo
