@@ -14,8 +14,8 @@ Kept from SecondCortex: the monochrome palette (no orange accent, white is the
 accent), the existing headline, the five sample memories in the query demo,
 and the proof numbers already on the page.
 
-Added for "ASCII styling": a canvas hero that renders a rotating brain as
-characters (` .:-=+*#%@`), box drawing section rules, a diff block for the
+Added for "ASCII styling": a static ASCII brain supplied by the founder, with the
+surrounding background noise stripped (a rotating 3D version was unreadable), box drawing section rules, a diff block for the
 problem section, ASCII cards inside feature cells, glyph arrows instead of an
 icon set, and an ANSI Shadow wordmark in the footer.
 
@@ -55,8 +55,8 @@ a long story.
 ## Outline
 
 1. Floating nav: wordmark, Features, How it works, Demo, FAQ, Thesis, GitHub, Install.
-2. Hero: eyebrow, headline, Human/Agent toggle over the lead, one CTA, proof line, ASCII brain.
-3. Works with strip: Claude Code, Cursor, GitHub Copilot, Codex, PicoClaw.
+2. Hero: eyebrow, headline, Human/Agent toggle over the lead, one CTA, ASCII brain.
+3. Backed by strip: Claude for Startups, Microsoft for Startups, AWS Activate, Top 10 at Microsoft AI Unlocked.
 4. `[01]` Problem to solution: diff block.
 5. `[02]` Features: five cells in a hairline grid.
 6. Tagline reveal: word by word on scroll.
@@ -77,7 +77,7 @@ a long story.
   and the reason.
 - Lead (Agent): the `search_memory` response for the same question, as JSON.
 - CTA: Install free for VS Code
-- Proof: Top 55 of 10,000+ in Microsoft AI Unlocked. MIT licensed.
+- Proof: the Backed by strip directly under the hero. The line under the CTA reads "Free and MIT licensed".
 
 ## Benefits
 
@@ -115,3 +115,4 @@ Index. Evergreen product page.
 - No testimonials. Inventing quotes for a real product would be fabricated reviews.
 - No privacy or terms links. Those pages do not exist and the copy is a legal call.
 - No `og:image`. There is no asset yet.
+- The AWS mark is hand drawn. Simple Icons dropped the AWS and Microsoft marks, so swap in the official AWS Activate badge when you have it. The Microsoft mark is the standard four square geometry, in one color.
