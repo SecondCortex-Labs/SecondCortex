@@ -38,7 +38,8 @@ def openai_complete(base_url: str, model: str, api_key: str | None) -> Complete:
     Builds the client now and calls the network only when invoked.
     """
     # Ollama ignores the key, but the SDK refuses an empty one.
-    client = OpenAI(base_url=base_url, api_key=api_key or "unused", timeout=120)
+    # One retry, not the SDK's two: with a stopped local model each refused connect costs ~2 s on Windows.
+    client = OpenAI(base_url=base_url, api_key=api_key or "unused", timeout=120, max_retries=1)
 
     def complete(system: str, user: str) -> str:
         try:
