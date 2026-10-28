@@ -1,11 +1,26 @@
+import socket
 import tempfile
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 
+from secondcortex.app import create_app
 from secondcortex.memory import BUCKET, Store
+
+
+class FakeLlm:
+    """Stands in for the chat endpoint: records every (system, user) prompt, returns a canned reply."""
+
+    def __init__(self, reply: str = "You were adding jitter to retry_with_backoff [1].") -> None:
+        self.reply = reply
+        self.calls: list[tuple[str, str]] = []
+
+    def __call__(self, system: str, user: str) -> str:
+        self.calls.append((system, user))
+        return self.reply
 
 
 def at(minutes: float) -> str:
@@ -31,6 +46,13 @@ def snap(**overrides: object) -> dict[str, object]:
     }
 
 
+def closed_port() -> int:
+    """A loopback port with nothing listening."""
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
 @pytest.fixture
 def data_dir() -> Iterator[Path]:
     """A fresh data directory per test. Not tmp_path: pytest's shared basetemp can be unreadable on a developer machine."""
@@ -42,3 +64,14 @@ def data_dir() -> Iterator[Path]:
 def store(data_dir: Path) -> Iterator[Store]:
     with Store(data_dir) as opened:
         yield opened
+
+
+@pytest.fixture
+def llm() -> FakeLlm:
+    return FakeLlm()
+
+
+@pytest.fixture
+def client(store: Store, llm: FakeLlm) -> TestClient:
+    """The extension's view. base_url must be 127.0.0.1: the Host guard rejects TestClient's default."""
+    return TestClient(create_app(store, llm), base_url="http://127.0.0.1", raise_server_exceptions=False)
