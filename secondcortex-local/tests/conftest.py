@@ -14,8 +14,6 @@ from secondcortex.memory import BUCKET, Store
 
 
 class FakeLlm:
-    """Stands in for the chat endpoint: records every (system, user) prompt, returns a canned reply."""
-
     def __init__(self, reply: str = "You were adding jitter to retry_with_backoff [1].") -> None:
         self.reply = reply
         self.calls: list[tuple[str, str]] = []
@@ -26,14 +24,12 @@ class FakeLlm:
 
 
 def at(minutes: float) -> str:
-    """ISO time `minutes` after the start of a bucket that began over an hour ago, so tests never straddle a bucket edge by accident."""
     now = datetime.now(UTC)
     start = now - (now - datetime(1970, 1, 1, tzinfo=UTC)) % BUCKET - timedelta(hours=1)
     return (start + timedelta(minutes=minutes)).isoformat()
 
 
 def snap(**overrides: object) -> dict[str, object]:
-    """A wire payload as the extension sends it, with `overrides` applied."""
     return {
         "workspace": "file:///c%3A/code/payments-api",
         "file": "src/retry.py",
@@ -55,7 +51,6 @@ def ingest(client: TestClient, **overrides: object) -> str:
 
 
 def closed_port() -> int:
-    """A loopback port with nothing listening."""
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         return probe.getsockname()[1]
@@ -63,7 +58,7 @@ def closed_port() -> int:
 
 @pytest.fixture
 def data_dir() -> Iterator[Path]:
-    """A fresh data directory per test. Not tmp_path: pytest's shared basetemp can be unreadable on a developer machine."""
+    """Not tmp_path: pytest's shared basetemp can be unreadable on a developer machine."""
     root = Path(tempfile.mkdtemp(prefix="secondcortex-test-"))
     yield root / "data"
     for _ in range(10):  # Windows keeps a killed process's files locked for a moment
@@ -86,5 +81,4 @@ def llm() -> FakeLlm:
 
 @pytest.fixture
 def client(store: Store, llm: FakeLlm) -> TestClient:
-    """The extension's view. base_url must be 127.0.0.1: the Host guard rejects TestClient's default."""
     return TestClient(create_app(store, llm), base_url="http://127.0.0.1", raise_server_exceptions=False)

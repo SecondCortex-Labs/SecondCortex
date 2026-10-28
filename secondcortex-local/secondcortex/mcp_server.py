@@ -1,10 +1,3 @@
-"""MCP stdio server for coding agents: three read-only tools over the running HTTP server.
-
-It never opens the data directory. A long-lived second process on the same Chroma directory
-misses other processes' writes in vector search (measured), and Store's owner lock would refuse
-it anyway. The tools return raw snapshot JSON; the calling agent does the reasoning.
-"""
-
 import urllib.parse
 from typing import Any
 
@@ -20,14 +13,9 @@ _INSTRUCTIONS = (
 
 
 def build_server(http: httpx.Client) -> FastMCP:
-    """Tools bound to `http`, whose base_url is the local SecondCortex server.
-
-    Tests pass a FastAPI TestClient (an httpx.Client) over the real app.
-    """
     server = FastMCP("secondcortex", instructions=_INSTRUCTIONS)
 
     def fetch(path: str, params: dict[str, Any]) -> Any:
-        """GET and decode JSON, turning transport and HTTP failures into ToolErrors an agent can act on."""
         try:
             response = http.get(path, params={k: v for k, v in params.items() if v is not None})
         except httpx.TransportError as error:

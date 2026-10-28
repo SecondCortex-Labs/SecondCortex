@@ -1,9 +1,3 @@
-"""HTTP surface for the VS Code extension. No auth: cli.py binds 127.0.0.1 only.
-
-Request and response bodies are the domain models themselves, so there is no second shape to
-convert to or from. Unhandled errors use Starlette's default 500 body, which carries no traceback.
-"""
-
 from typing import Annotated
 
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -29,14 +23,13 @@ class Stored(BaseModel):
 
 
 def create_app(store: Store, complete: Complete) -> FastAPI:
-    """Routes over one already-open store. The caller owns the store's lifetime."""
     app = FastAPI(title="SecondCortex")
     # Without auth, a DNS-rebinding page could read memory through the browser. Pin the Host header.
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost"])
 
     @app.post("/snapshots")
     def put_snapshot(snapshot: Snapshot) -> Stored:
-        """Ingest. Safe to resend: the offline queue's replays converge on one record."""
+        """Safe to resend: the offline queue's replays converge on one record."""
         return Stored(id=store.put(snapshot))
 
     @app.get("/snapshots")
@@ -64,7 +57,6 @@ def create_app(store: Store, complete: Complete) -> FastAPI:
 
     @app.exception_handler(LlmUnavailable)
     async def llm_unavailable(request: Request, error: LlmUnavailable) -> JSONResponse:
-        """502 so the sidebar can say the model is down rather than that SecondCortex is broken."""
         return JSONResponse({"detail": str(error)}, status_code=502)
 
     return app

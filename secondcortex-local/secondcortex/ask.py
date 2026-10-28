@@ -1,8 +1,3 @@
-"""The ask path: search memory, then one chat completion over what was found.
-
-The only LLM call in the package. Ingest and MCP never reach this file.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
@@ -14,7 +9,6 @@ from pydantic import BaseModel
 from secondcortex.memory import Snapshot, Store
 
 Complete = Callable[[str, str], str]
-"""(system prompt, user prompt) -> reply text. `openai_complete` in production, a fake in tests."""
 
 SOURCES_PER_ANSWER = 8
 _EXCERPT_CHARS = 1200
@@ -29,15 +23,10 @@ class Answer(BaseModel):
 
 
 class LlmUnavailable(Exception):
-    """The configured chat endpoint failed or could not be reached. The message names the endpoint."""
+    pass
 
 
 def openai_complete(base_url: str, model: str, api_key: str | None) -> Complete:
-    """A `Complete` over any OpenAI-compatible endpoint (OpenAI, or Ollama at http://localhost:11434/v1).
-
-    Builds the client now and calls the network only when invoked.
-    """
-    # Ollama ignores the key, but the SDK refuses an empty one.
     # One retry, not the SDK's two: with a stopped local model each refused connect costs ~2 s on Windows.
     client = OpenAI(base_url=base_url, api_key=api_key or "unused", timeout=120, max_retries=1)
 
@@ -56,7 +45,6 @@ def openai_complete(base_url: str, model: str, api_key: str | None) -> Complete:
 
 
 def ask(question: str, store: Store, complete: Complete, workspace: str | None = None) -> Answer:
-    """Answer from the most similar snapshots. With no matches, answer without calling the LLM."""
     sources = store.search(question, SOURCES_PER_ANSWER, workspace)
     if not sources:
         return Answer(answer=_EMPTY, sources=[])
@@ -64,7 +52,6 @@ def ask(question: str, store: Store, complete: Complete, workspace: str | None =
 
 
 def _system(now: datetime) -> str:
-    """Pure. Today's date is stated so "last week" resolves against the snapshot timestamps."""
     return (
         f"You answer a developer's questions about their own past work. Today is {now:%Y-%m-%d} (UTC). "
         "Use only the numbered snapshots provided. Cite them as [n]. "
@@ -73,7 +60,6 @@ def _system(now: datetime) -> str:
 
 
 def _prompt(question: str, sources: Sequence[Snapshot]) -> str:
-    """Numbered snapshot blocks, then the question. Pure: structured state in, string out."""
     blocks = []
     for n, source in enumerate(sources, start=1):
         header = f"[{n}] {source.timestamp:%Y-%m-%d %H:%M} UTC  {source.file} on {source.branch or 'no branch'}  {source.symbol or ''}"

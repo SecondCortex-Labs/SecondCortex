@@ -1,5 +1,3 @@
-"""The OpenAI adapter against a real local HTTP endpoint, so no mock stands in for the SDK."""
-
 import json
 import threading
 import time

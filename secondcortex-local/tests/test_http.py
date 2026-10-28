@@ -1,5 +1,3 @@
-"""The extension's contract, driven through HTTP against a real store and the real embedding model."""
-
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest

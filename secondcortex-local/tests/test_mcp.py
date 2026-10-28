@@ -1,8 +1,3 @@
-"""The coding agent's contract: tools called by name, as an MCP client would, over the real HTTP app.
-
-FastMCP.call_tool is async and the suite has no pytest-asyncio, so each call goes through anyio.run.
-"""
-
 from typing import Any
 
 import anyio

@@ -1,10 +1,3 @@
-"""`secondcortex serve` and `secondcortex mcp`. The composition root: the only place that reads
-the environment, opens the store, or picks a host.
-
-Heavy modules are imported inside the commands that need them, so `mcp` never loads chromadb,
-onnxruntime or openai.
-"""
-
 import argparse
 from collections.abc import Sequence
 from pathlib import Path
@@ -16,8 +9,6 @@ HOST = "127.0.0.1"
 
 
 class Settings(BaseSettings):
-    """Environment only (SECONDCORTEX_*). There is deliberately no host setting: no auth means loopback only."""
-
     model_config = SettingsConfigDict(env_prefix="SECONDCORTEX_")
 
     data_dir: Path = Path.home() / ".secondcortex"
@@ -46,7 +37,6 @@ def main(argv: Sequence[str] | None = None) -> None:
 
 
 def serve(settings: Settings) -> None:
-    """Open the store before binding, so a second server fails on the lock instead of sharing the directory."""
     import uvicorn
 
     from secondcortex.app import create_app
@@ -63,7 +53,6 @@ def serve(settings: Settings) -> None:
 
 
 def run_mcp(settings: Settings) -> None:
-    """stdout is the MCP channel: nothing in this process may print to it."""
     import httpx
 
     from secondcortex.mcp_server import build_server

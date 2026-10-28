@@ -1,5 +1,3 @@
-"""Process-level guarantees HTTP does not show: ownership, durability, loud failure, one name per field."""
-
 import re
 from pathlib import Path
 

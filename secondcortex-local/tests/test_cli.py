@@ -1,5 +1,3 @@
-"""The composition root, run as real processes: `serve` owns the data directory and `mcp` only talks to it."""
-
 import os
 import subprocess
 import sys
@@ -49,7 +47,6 @@ def test_a_bad_environment_exits_with_a_message_instead_of_a_traceback(
 
 @pytest.fixture
 def server_env(data_dir: Path) -> Iterator[dict[str, str]]:
-    """A running `secondcortex serve` on a free port over a fresh data directory. Yields its environment."""
     env = {**os.environ, "SECONDCORTEX_DATA_DIR": str(data_dir), "SECONDCORTEX_PORT": str(closed_port())}
     server = subprocess.Popen(
         secondcortex("serve"), cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
