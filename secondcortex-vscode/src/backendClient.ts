@@ -186,13 +186,8 @@ export class BackendClient {
         });
     }
 
-    /**
-     * Send a sanitized snapshot to the backend.
-     * Returns true on success, false on failure (so caller can cache it locally).
-     */
     async sendSnapshot(payload: Record<string, unknown>): Promise<boolean> {
         try {
-            this.output.appendLine('[Agent:Executing] Sending snapshot to backend...');
             const res = await fetch(`${this.baseUrl}/api/v1/snapshot`, {
                 method: 'POST',
                 headers: await this.getHeaders(),
@@ -208,7 +203,6 @@ export class BackendClient {
                 this.output.appendLine(`[BackendClient] Snapshot upload details: ${text}`);
                 return false;
             }
-            this.output.appendLine('[Agent:Executing] Snapshot uploaded successfully.');
             this.output.appendLine('[BackendClient] Snapshot uploaded successfully.');
             return true;
         } catch (err) {
@@ -528,33 +522,6 @@ export class BackendClient {
         }
     }
 
-    /**
-     * Clear chat history (single session or all).
-     */
-    async clearChatHistory(sessionId?: string): Promise<boolean> {
-        try {
-            let url = `${this.baseUrl}/api/v1/chat/history`;
-            if (sessionId) {
-                url += `?session_id=${encodeURIComponent(sessionId)}`;
-            }
-            const res = await fetch(url, {
-                method: 'DELETE',
-                headers: await this.getHeaders(),
-            });
-            if (res.status === 401) {
-                await this.handle401();
-                return false;
-            }
-            return res.ok;
-        } catch (err) {
-            this.output.appendLine(`[BackendClient] Network error clearing chat history: ${err}`);
-            return false;
-        }
-    }
-
-    /**
-     * Create a new chat session.
-     */
     async createChatSession(title: string): Promise<string | null> {
         try {
             const res = await fetch(`${this.baseUrl}/api/v1/chat/sessions`, {
@@ -575,94 +542,6 @@ export class BackendClient {
         }
     }
 
-    /** Fetch linear snapshot timeline for Shadow Graph time-travel UI. */
-    async getSnapshotTimeline(limit: number = 200, projectId?: string): Promise<Array<{
-        id: string;
-        timestamp: string;
-        active_file: string;
-        git_branch: string | null;
-        project_id?: string | null;
-        summary: string;
-        entities: string[];
-    }>> {
-        try {
-            const projectQuery = projectId ? `&projectId=${encodeURIComponent(projectId)}` : '';
-            const res = await fetch(`${this.baseUrl}/api/v1/snapshots/timeline?limit=${encodeURIComponent(limit)}${projectQuery}`, {
-                headers: await this.getHeaders(),
-            });
-            if (res.status === 401) {
-                await this.handle401();
-                return [];
-            }
-            if (!res.ok) {
-                this.output.appendLine(`[BackendClient] Timeline request failed: ${res.status} ${res.statusText}`);
-                return [];
-            }
-
-            const data = await res.json() as { timeline?: Array<any> };
-            return (data.timeline || []) as Array<{
-                id: string;
-                timestamp: string;
-                active_file: string;
-                git_branch: string | null;
-                project_id?: string | null;
-                summary: string;
-                entities: string[];
-            }>;
-        } catch (err) {
-            this.output.appendLine(`[BackendClient] Network error fetching timeline: ${err}`);
-            return [];
-        }
-    }
-
-    /** Fetch one snapshot record by ID. */
-    async getSnapshotById(snapshotId: string): Promise<{
-        id: string;
-        timestamp: string;
-        workspace_folder?: string;
-        active_file: string;
-        git_branch: string | null;
-        summary: string;
-        entities: string[];
-        shadow_graph: string;
-        active_symbol?: string;
-        function_signatures?: string[];
-        capture_level?: 'base' | 'medium' | 'full' | 'ultra';
-        capture_meta?: Record<string, unknown>;
-    } | null> {
-        try {
-            const res = await fetch(`${this.baseUrl}/api/v1/snapshots/${encodeURIComponent(snapshotId)}`, {
-                headers: await this.getHeaders(),
-            });
-            if (res.status === 401) {
-                await this.handle401();
-                return null;
-            }
-            if (res.status === 404) {
-                return null;
-            }
-            if (!res.ok) {
-                this.output.appendLine(`[BackendClient] Snapshot lookup failed: ${res.status} ${res.statusText}`);
-                return null;
-            }
-            const data = await res.json() as { snapshot?: any };
-            return (data.snapshot || null) as {
-                id: string;
-                timestamp: string;
-                workspace_folder?: string;
-                active_file: string;
-                git_branch: string | null;
-                summary: string;
-                entities: string[];
-                shadow_graph: string;
-            } | null;
-        } catch (err) {
-            this.output.appendLine(`[BackendClient] Network error fetching snapshot by ID: ${err}`);
-            return null;
-        }
-    }
-
-    /** Request decision archaeology synthesis for a symbol+commit context. */
     async getDecisionArchaeology(payload: {
         filePath: string;
         symbolName: string;

@@ -73,10 +73,6 @@
         "title": "SecondCortex: Log Out"
       },
       {
-        "command": "secondcortex.openShadowGraph",
-        "title": "SecondCortex: Open Shadow Graph"
-      },
-      {
         "command": "secondcortex.selectProject",
         "title": "SecondCortex: Select Project"
       },
@@ -93,11 +89,6 @@
           "default": "https://sc-backend-suhaan.azurewebsites.net",
           "description": "The URL of the SecondCortex Azure backend API."
         },
-        "secondcortex.frontendUrl": {
-          "type": "string",
-          "default": "https://sc-frontend-suhaan.azurewebsites.net",
-          "description": "The URL of the SecondCortex frontend dashboard used in the Shadow Graph panel."
-        },
         "secondcortex.debouncerDelayMs": {
           "type": "number",
           "default": 30000,
@@ -112,11 +103,6 @@
           "type": "boolean",
           "default": true,
           "description": "Enable or disable automatic context capture."
-        },
-        "secondcortex.enableSecondCortexMcp": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable SecondCortex MCP in demo mode. When enabled, chat returns deterministic MCP mock responses."
         },
         "secondcortex.captureLevel": {
           "type": "string",
@@ -148,7 +134,6 @@
   },
   "dependencies": {
     "minimatch": "^9.0.0",
-    "node-fetch": "^3.3.0",
     "typescript": "^5.3.0"
   }
 }
