@@ -12,7 +12,7 @@ python -m secondcortex serve   # HTTP API on http://127.0.0.1:8732, memory in ~/
 python -m secondcortex mcp     # MCP stdio server for agents, needs `serve` running
 ```
 
-`serve` stores and searches with a local embedding model and calls no LLM. Only `POST /ask` calls one.
+`serve` stores and searches with a local embedding model and calls no LLM. Only `POST /ask` calls one. The first `serve` on a machine downloads that model (all-MiniLM-L6-v2, about 80 MB) into `~/.cache/chroma`; after that it runs offline.
 
 ## Environment
 
