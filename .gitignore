@@ -79,6 +79,7 @@ backend_logs.txt
 /mock/external/
 /test/
 /tests/
+/.worktrees/
 Sourceoftruth.md
 README_OLD.md
 secondcortex-backend/auth.db
