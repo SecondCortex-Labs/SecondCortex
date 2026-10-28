@@ -1,5 +1,7 @@
+import shutil
 import socket
 import tempfile
+import time
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -62,8 +64,13 @@ def closed_port() -> int:
 @pytest.fixture
 def data_dir() -> Iterator[Path]:
     """A fresh data directory per test. Not tmp_path: pytest's shared basetemp can be unreadable on a developer machine."""
-    with tempfile.TemporaryDirectory(prefix="secondcortex-test-", ignore_cleanup_errors=True) as directory:
-        yield Path(directory) / "data"
+    root = Path(tempfile.mkdtemp(prefix="secondcortex-test-"))
+    yield root / "data"
+    for _ in range(10):  # Windows keeps a killed process's files locked for a moment
+        shutil.rmtree(root, ignore_errors=True)
+        if not root.exists():
+            break
+        time.sleep(0.5)
 
 
 @pytest.fixture
