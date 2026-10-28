@@ -13,22 +13,14 @@ from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from functools import cache
 from pathlib import Path
-from types import TracebackType
 from typing import IO, Annotated, Any, Self
 
 import chromadb
 from chromadb.utils.embedding_functions.onnx_mini_lm_l6_v2 import ONNXMiniLM_L6_V2
 from pydantic import (
-    AfterValidator,
-    AwareDatetime,
-    BaseModel,
-    ConfigDict,
-    Field,
-    PlainSerializer,
-    computed_field,
-    field_validator,
-    model_validator,
-)
+    AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field, PlainSerializer,
+    computed_field, field_validator, model_validator,
+)  # fmt: skip
 
 BUCKET = timedelta(minutes=10)
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
@@ -60,12 +52,10 @@ class Snapshot(BaseModel):
     """One moment of work, as captured and redacted by the VS Code extension.
 
     Every field name is one lowercase word. The same names are the HTTP JSON, the stored record,
-    and the MCP output, so there is no casing to convert anywhere.
-
-    `workspace` is an opaque identity that must be unique per workspace on this machine (the
-    extension sends the workspace root URI, not the folder name). `file` is workspace-relative
-    with '/' separators. `timestamp` must carry an offset; naive times are rejected because the
-    identity bucket must be unambiguous. An empty `branch` means no branch.
+    and the MCP output, so there is no casing to convert anywhere. `workspace` is an opaque
+    identity unique per workspace on this machine (the root URI, not the folder name). `file` is
+    workspace-relative with '/' separators. `timestamp` must carry an offset, so the identity
+    bucket is unambiguous. An empty `branch` means no branch.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -111,11 +101,10 @@ class DataDirInUse(Exception):
 class Store:
     """The only reader and writer of the data directory. One per process, one process per directory.
 
-    A second process opening the same Chroma directory sees new rows in `get` but not in vector
-    `query` (measured), so ownership is enforced by an OS lock rather than by convention.
-    Opens the directory on construction and loads the embedding model, so a missing or broken
-    model fails at startup, not on the first ingest. Raises DataDirInUse if another process
-    holds the directory.
+    A second process on the same Chroma directory sees new rows in `get` but not in vector
+    `query` (measured), so ownership is an OS lock, not a convention. Construction takes the
+    lock (DataDirInUse if held) and loads the embedding model, so a broken model fails at
+    startup, not on the first ingest.
     """
 
     def __init__(self, data_dir: Path) -> None:
@@ -144,12 +133,7 @@ class Store:
     def __enter__(self) -> Self:
         return self
 
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc: BaseException | None,
-        tb: TracebackType | None,
-    ) -> None:
+    def __exit__(self, *exc_info: object) -> None:
         self.close()
 
     def put(self, snapshot: Snapshot) -> str:
