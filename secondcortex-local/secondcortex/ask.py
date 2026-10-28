@@ -1,14 +1,18 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from datetime import UTC, datetime
+from typing import Protocol
 
 from openai import OpenAI, OpenAIError
 from pydantic import BaseModel
 
 from secondcortex.memory import Snapshot, Store
 
-Complete = Callable[[str, str], str]
+
+class Complete(Protocol):
+    def __call__(self, system: str, user: str) -> str: ...
+
 
 SOURCES_PER_ANSWER = 8
 _EXCERPT_CHARS = 1200

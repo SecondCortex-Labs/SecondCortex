@@ -23,7 +23,8 @@ class FakeLlm:
         return self.reply
 
 
-def at(minutes: float) -> str:
+def bucket_time(minutes: float) -> str:
+    """A time `minutes` into the 10-minute bucket that started an hour ago, so a test controls bucket membership."""
     now = datetime.now(UTC)
     start = now - (now - datetime(1970, 1, 1, tzinfo=UTC)) % BUCKET - timedelta(hours=1)
     return (start + timedelta(minutes=minutes)).isoformat()
@@ -34,7 +35,7 @@ def snap(**overrides: object) -> dict[str, object]:
         "workspace": "file:///c%3A/code/payments-api",
         "file": "src/retry.py",
         "branch": "fix/backoff",
-        "timestamp": at(1),
+        "timestamp": bucket_time(1),
         "language": "python",
         "symbol": "retry_with_backoff",
         "signatures": ["def retry_with_backoff(fn, attempts=3, base_delay=0.5)"],

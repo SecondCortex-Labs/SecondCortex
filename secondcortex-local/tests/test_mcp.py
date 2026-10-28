@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 
-from conftest import at, closed_port, ingest, snap
+from conftest import bucket_time, closed_port, ingest, snap
 from secondcortex.mcp_server import build_server
 
 
@@ -18,7 +18,7 @@ def call(server: FastMCP, tool: str, **arguments: object) -> Any:
 
 
 def test_tools_return_raw_snapshots(client: TestClient) -> None:
-    retry_id = ingest(client, timestamp=at(1))
+    retry_id = ingest(client, timestamp=bucket_time(1))
     ingest(
         client,
         workspace="file:///c%3A/code/marketing-site",
@@ -28,7 +28,7 @@ def test_tools_return_raw_snapshots(client: TestClient) -> None:
         signatures=[],
         commands=["npm run build:css"],
         excerpt=".btn { border-radius: 4px; background: #1a73e8; color: white; }",
-        timestamp=at(5),
+        timestamp=bucket_time(5),
     )
     server = build_server(client)
     timeline = client.get("/snapshots").json()

@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta, timezone
 import pytest
 from fastapi.testclient import TestClient
 
-from conftest import FakeLlm, at, ingest, snap
+from conftest import FakeLlm, bucket_time, ingest, snap
 from secondcortex.app import create_app
 from secondcortex.ask import LlmUnavailable
 from secondcortex.memory import Store
@@ -21,22 +21,22 @@ def test_resending_a_snapshot_keeps_one_record(client: TestClient) -> None:
 
 
 def test_edits_in_one_bucket_converge_to_the_newest(client: TestClient) -> None:
-    first = ingest(client, timestamp=at(1), excerpt="first draft")
-    second = ingest(client, timestamp=at(4), excerpt="second draft")
+    first = ingest(client, timestamp=bucket_time(1), excerpt="first draft")
+    second = ingest(client, timestamp=bucket_time(4), excerpt="second draft")
     assert first == second
     assert [row["excerpt"] for row in timeline(client)] == ["second draft"]
 
 
 def test_late_replay_of_an_older_snapshot_does_not_overwrite_newer_work(client: TestClient) -> None:
-    ingest(client, timestamp=at(4), excerpt="second draft")
-    ingest(client, timestamp=at(1), excerpt="first draft")
+    ingest(client, timestamp=bucket_time(4), excerpt="second draft")
+    ingest(client, timestamp=bucket_time(1), excerpt="first draft")
     assert [row["excerpt"] for row in timeline(client)] == ["second draft"]
 
 
 def test_new_bucket_branch_file_or_workspace_starts_a_new_record(client: TestClient) -> None:
     base = ingest(client)
     others = {
-        ingest(client, timestamp=at(11)),
+        ingest(client, timestamp=bucket_time(11)),
         ingest(client, branch="other"),
         ingest(client, file="src/other.py"),
         ingest(client, workspace="file:///c%3A/code/other-repo"),
@@ -46,7 +46,7 @@ def test_new_bucket_branch_file_or_workspace_starts_a_new_record(client: TestCli
 
 
 def test_same_instant_in_another_offset_is_the_same_record(client: TestClient) -> None:
-    instant = datetime.fromisoformat(at(1))
+    instant = datetime.fromisoformat(bucket_time(1))
     as_utc = instant.isoformat().replace("+00:00", "Z")
     as_ist = instant.astimezone(timezone(timedelta(hours=5, minutes=30))).isoformat()
     assert ingest(client, timestamp=as_utc) == ingest(client, timestamp=as_ist)
@@ -62,9 +62,9 @@ def test_empty_branch_and_missing_branch_are_the_same_record(client: TestClient)
 
 
 def test_timeline_is_newest_first_and_filters_by_workspace(client: TestClient) -> None:
-    ingest(client, workspace="ws-a", file="a.py", timestamp=at(1))
-    ingest(client, workspace="ws-b", file="b.py", timestamp=at(5))
-    ingest(client, workspace="ws-a", file="c.py", timestamp=at(9))
+    ingest(client, workspace="ws-a", file="a.py", timestamp=bucket_time(1))
+    ingest(client, workspace="ws-b", file="b.py", timestamp=bucket_time(5))
+    ingest(client, workspace="ws-a", file="c.py", timestamp=bucket_time(9))
     assert [row["file"] for row in timeline(client)] == ["c.py", "b.py", "a.py"]
     assert [row["file"] for row in timeline(client, workspace="ws-a")] == ["c.py", "a.py"]
     assert [row["file"] for row in timeline(client, limit=1)] == ["c.py"]
@@ -73,7 +73,7 @@ def test_timeline_is_newest_first_and_filters_by_workspace(client: TestClient) -
 def test_timeline_reaches_old_work_when_nothing_newer_exists(client: TestClient) -> None:
     long_ago = (datetime.now(UTC) - timedelta(days=400)).isoformat()
     ingest(client, file="old.py", timestamp=long_ago)
-    ingest(client, file="new.py", timestamp=at(1))
+    ingest(client, file="new.py", timestamp=bucket_time(1))
     assert [row["file"] for row in timeline(client, limit=2)] == ["new.py", "old.py"]
 
 
@@ -121,7 +121,7 @@ def test_search_finds_work_by_meaning(client: TestClient) -> None:
             "activeFile": "src/retry.py",
             "languageId": "python",
             "shadowGraph": "def retry_with_backoff(...)",
-            "timestamp": at(1),
+            "timestamp": bucket_time(1),
         },
     ],
     ids=["naive-timestamp", "unknown-field", "old-camelcase-payload"],

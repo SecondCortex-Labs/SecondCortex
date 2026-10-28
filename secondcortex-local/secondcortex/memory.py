@@ -20,6 +20,7 @@ from pydantic import (
 BUCKET = timedelta(minutes=10)
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 _COLLECTION = "snapshots"
+_PAGE = 10_000
 _RECENT_WINDOWS: tuple[timedelta | None, ...] = (
     timedelta(days=1),
     timedelta(days=7),
@@ -98,7 +99,7 @@ class Store:
                 settings=chromadb.Settings(anonymized_telemetry=False),
             )
             self._collection = self._client.get_or_create_collection(_COLLECTION, embedding_function=None)
-            _embedder()(["warm"])
+            self._embed = _embedder()
         except BaseException:
             self.close()
             raise
@@ -116,7 +117,7 @@ class Store:
 
     def put(self, snapshot: Snapshot) -> str:
         text = _search_text(snapshot)
-        vector = _embedder()([text])
+        vector = self._embed([text])
         with self._write_lock:
             existing = self._collection.get(ids=[snapshot.id], include=["metadatas"])["metadatas"]
             if existing and existing[0]["at_ms"] >= _millis(snapshot.timestamp):
@@ -131,21 +132,28 @@ class Store:
         return _snapshot(rows[0]) if rows else None
 
     def recent(self, limit: int, workspace: str | None = None) -> list[Snapshot]:
-        """Chroma has no ORDER BY, and an unbounded get fails past ~32k rows ("too many SQL
-        variables").
-        """
+        """Chroma has no ORDER BY, so read the smallest trailing window that holds `limit` rows."""
         now_ms = _millis(datetime.now(UTC))
         for window in _RECENT_WINDOWS:
             since_ms = None if window is None else now_ms - window // timedelta(milliseconds=1)
-            rows = self._collection.get(where=_where(workspace, since_ms), include=["metadatas"])["metadatas"]
+            rows = self._rows(_where(workspace, since_ms))
             if len(rows) >= limit:
                 break
         rows.sort(key=lambda row: row["at_ms"], reverse=True)
         return [_snapshot(row) for row in rows[:limit]]
 
+    def _rows(self, where: dict[str, Any] | None) -> list[Mapping[str, Any]]:
+        """Paged, because a single get past ~32k rows fails with "too many SQL variables"."""
+        rows: list[Mapping[str, Any]] = []
+        while True:
+            page = self._collection.get(where=where, include=["metadatas"], limit=_PAGE, offset=len(rows))
+            rows += page["metadatas"]
+            if len(page["metadatas"]) < _PAGE:
+                return rows
+
     def search(self, query: str, limit: int, workspace: str | None = None) -> list[Snapshot]:
         hits = self._collection.query(
-            query_embeddings=_embedder()([query]),
+            query_embeddings=self._embed([query]),
             n_results=limit,
             where=_where(workspace),
             include=["metadatas"],
@@ -157,7 +165,9 @@ class Store:
 def _embedder() -> ONNXMiniLM_L6_V2:
     """chromadb's DefaultEmbeddingFunction builds a fresh model per call
     (measured ~260 ms per call vs ~26 ms held)."""
-    return ONNXMiniLM_L6_V2()
+    model = ONNXMiniLM_L6_V2()
+    model(["warm"])  # The model loads lazily; load it now so a broken install fails when Store opens.
+    return model
 
 
 def _acquire_owner_lock(path: Path) -> IO[str]:
