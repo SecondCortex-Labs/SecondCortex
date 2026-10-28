@@ -46,6 +46,12 @@ def snap(**overrides: object) -> dict[str, object]:
     }
 
 
+def ingest(client: TestClient, **overrides: object) -> str:
+    response = client.post("/snapshots", json=snap(**overrides))
+    assert response.status_code == 200, response.text
+    return response.json()["id"]
+
+
 def closed_port() -> int:
     """A loopback port with nothing listening."""
     with socket.socket() as probe:

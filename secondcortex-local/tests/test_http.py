@@ -5,16 +5,10 @@ from datetime import UTC, datetime, timedelta, timezone
 import pytest
 from fastapi.testclient import TestClient
 
-from conftest import FakeLlm, at, snap
+from conftest import FakeLlm, at, ingest, snap
 from secondcortex.app import create_app
 from secondcortex.ask import LlmUnavailable
 from secondcortex.memory import Store
-
-
-def ingest(client: TestClient, **overrides: object) -> str:
-    response = client.post("/snapshots", json=snap(**overrides))
-    assert response.status_code == 200, response.text
-    return response.json()["id"]
 
 
 def timeline(client: TestClient, **params: object) -> list[dict]:
