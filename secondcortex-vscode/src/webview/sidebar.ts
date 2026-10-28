@@ -1,15 +1,9 @@
 import * as vscode from 'vscode';
 import { BackendClient, HumanInteractionEnvelope, IncidentPacketResponse } from '../backendClient';
 import { AuthService } from '../auth/authService';
-import { DEMO_MODE, getDemoSummaryFromSnapshot, getMockMcpResponse } from '../demoMode';
 
-/**
- * SidebarProvider – renders a Webview-based sidebar inside VS Code.
- * Shows a login/signup form when unauthenticated, and the chat interface when authenticated.
- */
 export class SidebarProvider implements vscode.WebviewViewProvider {
     private _view?: vscode.WebviewView;
-    private readonly demoSessionId = 'session-1';
 
     constructor(
         private readonly extensionUri: vscode.Uri,
@@ -43,11 +37,6 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         webviewView.webview.onDidReceiveMessage(async (message) => {
             switch (message.type) {
                 case 'login': {
-                    if (DEMO_MODE) {
-                        this.updateHtml();
-                        this.postMessage({ type: 'authSuccess' });
-                        break;
-                    }
                     const result = await this.auth.login(message.email, message.password);
                     if (result.success) {
                         this.updateHtml();
@@ -58,11 +47,6 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     break;
                 }
                 case 'signup': {
-                    if (DEMO_MODE) {
-                        this.updateHtml();
-                        this.postMessage({ type: 'authSuccess' });
-                        break;
-                    }
                     const result = await this.auth.signup(message.email, message.password, message.displayName || '');
                     if (result.success) {
                         this.updateHtml();
@@ -73,10 +57,6 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     break;
                 }
                 case 'logout': {
-                    if (DEMO_MODE) {
-                        this.updateHtml();
-                        break;
-                    }
                     await this.auth.logout();
                     this.updateHtml();
                     break;
@@ -140,56 +120,6 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     }
 
                     const normalized = (question || '').trim().toLowerCase();
-                    if (DEMO_MODE) {
-                        const localSessionId = sessionId || this.demoSessionId;
-                        this.postMessage({ type: 'sessionBound', sessionId: localSessionId });
-
-                        if (normalized.includes('what was i working on')) {
-                            this.postMessage({ type: 'loading' });
-                            await this.delayLocalResponse();
-                            this.postMessage({
-                                type: 'answer',
-                                summary: getDemoSummaryFromSnapshot(),
-                                commands: [],
-                                sessionId: localSessionId,
-                            });
-                            break;
-                        }
-
-                        const mcpEnabled = vscode.workspace
-                            .getConfiguration('secondcortex')
-                            .get<boolean>('enableSecondCortexMcp', false);
-
-                        this.postMessage({ type: 'loading' });
-                        await this.delayLocalResponse();
-                        this.postMessage({
-                            type: 'answer',
-                            summary: mcpEnabled
-                                ? getMockMcpResponse(question)
-                                : 'You were iterating on payment retry + token refresh logic in the current workspace. The latest local context is loaded.',
-                            commands: [],
-                            sessionId: localSessionId,
-                        });
-                        break;
-                    }
-
-                    const openShadowGraphIntent =
-                        normalized.includes('open shadow graph') ||
-                        normalized.includes('show shadow graph') ||
-                        normalized.includes('launch shadow graph') ||
-                        normalized === 'secondcortex: open shadow graph';
-
-                    if (openShadowGraphIntent) {
-                        await vscode.commands.executeCommand('secondcortex.openShadowGraph');
-                        this.postMessage({
-                            type: 'answer',
-                            summary: 'Opened Shadow Graph in a side panel. Use the snapshot slider to time-travel and click Restore when ready.',
-                            commands: [],
-                            sessionId,
-                        });
-                        break;
-                    }
-
                     const incidentIntent = normalized.startsWith('/incident') || normalized.startsWith('incident:');
                     if (incidentIntent) {
                         this.postMessage({ type: 'loading' });
@@ -250,55 +180,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     }
                     break;
                 }
-                case 'addNote': {
-                    if (DEMO_MODE) {
-                        await this.delayLocalResponse();
-                        this.postMessage({
-                            type: 'answer',
-                            summary: 'Saved note to local workspace memory.',
-                            commands: [],
-                            sessionId: message.sessionId || this.demoSessionId,
-                        });
-                        break;
-                    }
-                    const note = (message.note as string || '').trim();
-                    if (!note) {
-                        this.postMessage({ type: 'error', message: 'Note cannot be empty.' });
-                        break;
-                    }
-
-                    if (!this.ensureProjectSelectedForIngestion()) {
-                        break;
-                    }
-
-                    this.postMessage({ type: 'loading' });
-                    const ingested = await this.backend.ingestNote(note, this.getSelectedProjectId?.());
-                    if (ingested) {
-                        this.postMessage({
-                            type: 'answer',
-                            summary: 'Saved note to SecondCortex memory. You can also use `/add <note>` from chat for quick capture.',
-                            commands: [],
-                            sessionId: message.sessionId,
-                        });
-                    } else {
-                        this.postMessage({
-                            type: 'error',
-                            message: 'Could not ingest note. Make sure backend is running and you are logged in.',
-                        });
-                    }
-                    break;
-                }
                 case 'uploadDocument': {
-                    if (DEMO_MODE) {
-                        await this.delayLocalResponse();
-                        this.postMessage({
-                            type: 'answer',
-                            summary: 'Document indexed locally. Workspace memory has been updated.',
-                            commands: [],
-                            sessionId: message.sessionId || this.demoSessionId,
-                        });
-                        break;
-                    }
                     if (!this.ensureProjectSelectedForIngestion()) {
                         break;
                     }
@@ -364,79 +246,17 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     }
                     break;
                 }
-                case 'checkAuth': {
-                    if (DEMO_MODE) {
-                        this.postMessage({
-                            type: 'authStatus',
-                            loggedIn: true,
-                            user: {
-                                userId: 'local-user',
-                                email: 'local@secondcortex.app',
-                                displayName: 'Local User',
-                            },
-                        });
-                        break;
-                    }
-                    const loggedIn = await this.auth.isLoggedIn();
-                    const user = await this.auth.getUser();
-                    this.postMessage({ type: 'authStatus', loggedIn, user });
-                    break;
-                }
                 case 'getHistory': {
-                    if (DEMO_MODE) {
-                        await this.delayLocalResponse();
-                        this.postMessage({
-                            type: 'history',
-                            messages: [
-                                {
-                                    role: 'assistant',
-                                    content: 'Ask: What was I working on?',
-                                    timestamp: new Date(1711719000000).toISOString(),
-                                },
-                            ],
-                            sessionId: this.demoSessionId,
-                        });
-                        break;
-                    }
                     const history = await this.backend.getChatHistory(message.sessionId);
                     this.postMessage({ type: 'history', messages: history, sessionId: message.sessionId });
                     break;
                 }
                 case 'getSessions': {
-                    if (DEMO_MODE) {
-                        await this.delayLocalResponse();
-                        this.postMessage({
-                            type: 'sessions',
-                            sessions: [
-                                {
-                                    id: this.demoSessionId,
-                                    title: 'Current Session',
-                                    created_at: new Date(1711719000000).toISOString(),
-                                },
-                            ],
-                        });
-                        break;
-                    }
                     const sessions = await this.backend.getChatSessions();
                     this.postMessage({ type: 'sessions', sessions });
                     break;
                 }
                 case 'newChat': {
-                    if (DEMO_MODE) {
-                        await this.delayLocalResponse();
-                        this.postMessage({ type: 'chatCleared', sessionId: this.demoSessionId });
-                        this.postMessage({
-                            type: 'sessions',
-                            sessions: [
-                                {
-                                    id: this.demoSessionId,
-                                    title: message.title || 'Current Chat',
-                                    created_at: new Date(1711719000000).toISOString(),
-                                },
-                            ],
-                        });
-                        break;
-                    }
                     const sessionTitle = message.title || "New Chat";
                     const newId = await this.backend.createChatSession(sessionTitle);
                     this.postMessage({ type: 'chatCleared', sessionId: newId });
@@ -445,47 +265,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     break;
                 }
                 case 'switchSession': {
-                    if (DEMO_MODE) {
-                        await this.delayLocalResponse();
-                        this.postMessage({
-                            type: 'history',
-                            messages: [
-                                {
-                                    role: 'assistant',
-                                    content: 'Session restored. Ask: What was I working on?',
-                                    timestamp: new Date(1711719000000).toISOString(),
-                                },
-                            ],
-                            sessionId: this.demoSessionId,
-                        });
-                        break;
-                    }
                     const history = await this.backend.getChatHistory(message.sessionId);
                     this.postMessage({ type: 'history', messages: history, sessionId: message.sessionId });
                     break;
                 }
-                case 'openShadowGraph': {
-                    await vscode.commands.executeCommand('secondcortex.openShadowGraph');
-                    this.postMessage({
-                        type: 'answer',
-                        summary: 'Opened Shadow Graph in a side panel.',
-                        commands: [],
-                        sessionId: message.sessionId,
-                    });
-                    break;
-                }
                 case 'selectProject': {
-                    if (DEMO_MODE) {
-                        await this.delayLocalResponse();
-                        this.postMessage({
-                            type: 'answer',
-                            summary: 'Project selected: workspace-project',
-                            commands: [],
-                            sessionId: message.sessionId || this.demoSessionId,
-                        });
-                        this.postMessage({ type: 'projectStatus', projectId: 'workspace-project' });
-                        break;
-                    }
                     const beforeProjectId = this.getSelectedProjectId?.();
                     await this.onSelectProject?.();
                     const afterProjectId = this.getSelectedProjectId?.();
@@ -508,22 +292,6 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     });
                     break;
                 }
-                case 'toggleMcp': {
-                    const config = vscode.workspace.getConfiguration('secondcortex');
-                    const current = config.get<boolean>('enableSecondCortexMcp', false);
-                    const next = !current;
-                    await config.update('enableSecondCortexMcp', next, vscode.ConfigurationTarget.Global);
-                    if (DEMO_MODE) {
-                        await this.delayLocalResponse();
-                    }
-                    this.postMessage({
-                        type: 'answer',
-                        summary: `Enable SecondCortex MCP: ${next ? 'ON' : 'OFF'}`,
-                        commands: [],
-                        sessionId: message.sessionId || this.demoSessionId,
-                    });
-                    break;
-                }
             }
         });
     }
@@ -539,18 +307,6 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
     private async updateHtml(): Promise<void> {
         if (!this._view) { return; }
-        if (DEMO_MODE) {
-            this._view.webview.html = this.getHtml(
-                true,
-                {
-                    userId: 'local-user',
-                    email: 'local@secondcortex.app',
-                    displayName: 'Local User',
-                },
-                this.getSelectedProjectId?.() || 'workspace-project'
-            );
-            return;
-        }
         const loggedIn = await this.auth.isLoggedIn();
         const user = await this.auth.getUser();
         const projectId = this.getSelectedProjectId?.();
@@ -559,10 +315,6 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
     private postMessage(message: Record<string, unknown>): void {
         this._view?.webview.postMessage(message);
-    }
-
-    private async delayLocalResponse(): Promise<void> {
-        await new Promise<void>((resolve) => setTimeout(resolve, 3000));
     }
 
     private ensureProjectSelectedForIngestion(): boolean {
@@ -1344,19 +1096,6 @@ ${interaction.prompt.trim()}`);
             font-weight: 500;
         }
 
-        .bottom-actions {
-            margin-top: 10px;
-            display: flex;
-            justify-content: center;
-        }
-
-        .bottom-actions .icon-btn {
-            width: 100%;
-            justify-content: center;
-            padding: 8px 10px;
-            font-size: 11px;
-        }
-
         .slash-hint {
             margin-top: 7px;
             font-size: 10px;
@@ -1382,7 +1121,6 @@ ${interaction.prompt.trim()}`);
                 <button class="menu-item" onclick="toggleHistory()">History</button>
                 <button class="menu-item" onclick="insertAddNote()">Add Note (/add)</button>
                 <button class="menu-item" onclick="selectProject()">My Projects</button>
-                <button class="menu-item" onclick="toggleMcp()">Enable SecondCortex MCP</button>
                 <button class="menu-item" onclick="doLogout()">Logout</button>
             </div>
         </div>
@@ -1413,9 +1151,6 @@ ${interaction.prompt.trim()}`);
         </div>
         <div style="text-align: center; margin-top: 6px;">
             <span class="user-info" id="project-status">Project: ${projectId || 'Not selected'}</span>
-        </div>
-        <div class="bottom-actions">
-            <button class="icon-btn" onclick="openShadowGraph()">Open Shadow Graph</button>
         </div>
     </div>
 
@@ -1659,18 +1394,9 @@ ${interaction.prompt.trim()}`);
             vscode.postMessage({ type: 'logout' });
         }
 
-        function openShadowGraph() {
-            vscode.postMessage({ type: 'openShadowGraph', sessionId: state.sessionId });
-        }
-
         function selectProject() {
             closeMenu();
             vscode.postMessage({ type: 'selectProject' });
-        }
-
-        function toggleMcp() {
-            closeMenu();
-            vscode.postMessage({ type: 'toggleMcp', sessionId: state.sessionId });
         }
 
         document.addEventListener('click', (event) => {

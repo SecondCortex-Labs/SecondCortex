@@ -12,7 +12,6 @@ Just Adding to test
 - **Cortex as a Service (MCP)**: Expose your personal Cortex Memory to external AI tools through Model Context Protocol.
 - **SecondCortex Sidebar Chat**: Ask architecture or project-history questions directly inside VS Code.
 - **Session History + New Chat**: Quickly revisit prior conversations or start clean context threads.
-- **Shadow Graph Panel**: Open the visual context graph to inspect relationships across captured work.
 - **Safe Authentication Layer**: Login state uses VS Code SecretStorage for encrypted local token handling.
 - **CLI + Command Palette Support**: Trigger core actions from slash commands, extension commands, or terminal CLI.
 

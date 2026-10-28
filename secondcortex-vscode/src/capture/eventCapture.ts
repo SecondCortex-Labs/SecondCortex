@@ -4,7 +4,6 @@ import { Debouncer } from './debouncer';
 import { SemanticFirewall } from '../security/firewall';
 import { SnapshotCache } from './snapshotCache';
 import { BackendClient } from '../backendClient';
-import { DEMO_MODE } from '../demoMode';
 
 export type CaptureLevel = 'base' | 'medium' | 'full' | 'ultra';
 
@@ -127,16 +126,6 @@ export class EventCapture {
                 return;
             }
 
-            if (DEMO_MODE) {
-                this.output.appendLine('[Capture Engine]');
-                this.output.appendLine('Event: File Edit');
-                this.output.appendLine('[Debouncer] Passed (30s threshold)');
-                this.captureDocumentAndShip(e.document).catch((err) => {
-                    this.output.appendLine(`[EventCapture] Error capturing snapshot: ${err}`);
-                });
-                return;
-            }
-
             this.debouncer.touch(filePath, () => {
                 this.output.appendLine('[Capture Engine]');
                 this.output.appendLine('Event: File Edit');
@@ -165,41 +154,29 @@ export class EventCapture {
                 return;
             }
 
-            const text = doc.getText();
-            if (text.includes('sk_live_') || text.includes('API_KEY')) {
-                this.output.appendLine('[Semantic Firewall]');
-                this.output.appendLine('Detected sensitive token');
-                this.output.appendLine('Redacted → [CODE_REDACTED]');
-            }
-
             this.captureDocumentAndShip(doc).catch((err) => {
                 this.output.appendLine(`[EventCapture] Error capturing saved snapshot: ${err}`);
             });
         });
         this.disposables.push(saveSub);
 
-        // Background flush (works even when sidebar is closed)
-        if (!DEMO_MODE) {
-            const flushInterval = setInterval(() => {
-                this.cache.flushToBackend(this.backend).catch((err) => {
-                    this.output.appendLine(`[EventCapture] Background cache flush error: ${err}`);
-                });
-            }, 15000);
-            this.disposables.push(new vscode.Disposable(() => clearInterval(flushInterval)));
-
-            // Also flush whenever VS Code regains focus.
-            const focusSub = vscode.window.onDidChangeWindowState((state) => {
-                if (!state.focused) {
-                    return;
-                }
-                this.cache.flushToBackend(this.backend).catch((err) => {
-                    this.output.appendLine(`[EventCapture] Focus-triggered cache flush error: ${err}`);
-                });
+        const flushInterval = setInterval(() => {
+            this.cache.flushToBackend(this.backend).catch((err) => {
+                this.output.appendLine(`[EventCapture] Background cache flush error: ${err}`);
             });
-            this.disposables.push(focusSub);
-        }
+        }, 15000);
+        this.disposables.push(new vscode.Disposable(() => clearInterval(flushInterval)));
 
-        // Seed context immediately so first chat query has at least one snapshot.
+        const focusSub = vscode.window.onDidChangeWindowState((state) => {
+            if (!state.focused) {
+                return;
+            }
+            this.cache.flushToBackend(this.backend).catch((err) => {
+                this.output.appendLine(`[EventCapture] Focus-triggered cache flush error: ${err}`);
+            });
+        });
+        this.disposables.push(focusSub);
+
         const bootstrapEditor = vscode.window.activeTextEditor;
         const captureEnabled = vscode.workspace.getConfiguration('secondcortex').get<boolean>('captureEnabled', true);
         if (captureEnabled && bootstrapEditor && bootstrapEditor.document.uri.scheme === 'file') {
@@ -222,9 +199,7 @@ export class EventCapture {
 
         const captureLevel = this.getCaptureLevel();
         const rawContent = doc.getText();
-        this.output.appendLine(`[Agent:Planning] Preparing snapshot for ${doc.uri.fsPath}`);
         const sanitized = this.firewall.scrub(rawContent);
-        this.output.appendLine(`[Agent:Retrieving] Semantic firewall scan complete for ${doc.uri.fsPath}`);
 
         const levelBuild = await this.buildSnapshotForLevel({
             doc,
@@ -650,17 +625,8 @@ export class EventCapture {
     }
 
     private async sendOrCache(snapshot: CapturedSnapshot): Promise<void> {
-        if (DEMO_MODE) {
-            this.cache.store(snapshot);
-            this.output.appendLine('Snapshot stored locally');
-            this.output.appendLine('[Sync] Local mode active; remote sync skipped');
-            return;
-        }
-
-        this.output.appendLine(`[Agent:Executing] Uploading snapshot for ${snapshot.activeFile}`);
         const uploadOk = await this.backend.sendSnapshot(snapshot as unknown as Record<string, unknown>);
         if (!uploadOk) {
-            this.output.appendLine('[Agent:Executing] Upload failed - caching snapshot locally.');
             this.output.appendLine('[EventCapture] Backend unreachable - caching snapshot locally.');
             this.cache.store(snapshot);
         }

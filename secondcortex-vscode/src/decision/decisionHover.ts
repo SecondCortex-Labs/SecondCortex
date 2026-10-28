@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import { BackendClient } from '../backendClient';
-import { DEMO_MODE } from '../demoMode';
 import { BackgroundPrefetcher } from './backgroundPrefetcher';
 import { DecisionCache } from './decisionCache';
 import { runGitBlame } from './gitBlame';
@@ -37,19 +36,17 @@ export function registerDecisionArchaeology(
         disposables.push(provider);
     }
 
-    if (!DEMO_MODE) {
-        disposables.push(
-            vscode.workspace.onDidOpenTextDocument((document) => {
-                if (SUPPORTED_LANGUAGES.includes(document.languageId)) {
-                    prefetcher.scheduleFile(document);
-                }
-            })
-        );
-
-        for (const document of vscode.workspace.textDocuments) {
+    disposables.push(
+        vscode.workspace.onDidOpenTextDocument((document) => {
             if (SUPPORTED_LANGUAGES.includes(document.languageId)) {
                 prefetcher.scheduleFile(document);
             }
+        })
+    );
+
+    for (const document of vscode.workspace.textDocuments) {
+        if (SUPPORTED_LANGUAGES.includes(document.languageId)) {
+            prefetcher.scheduleFile(document);
         }
     }
 
@@ -73,11 +70,9 @@ async function provideDecisionHover(
     const blame = await runGitBlame(document.uri.fsPath, symbol.range) ?? buildFallbackBlame();
 
     const cacheKey = cache.buildKey(document.uri.fsPath, symbol.name, blame.commitHash);
-    if (!DEMO_MODE) {
-        const cached = cache.get(cacheKey);
-        if (cached) {
-            return formatHover(cached, symbol);
-        }
+    const cached = cache.get(cacheKey);
+    if (cached) {
+        return formatHover(cached, symbol);
     }
 
     const fetched = await fetchAndCacheDecision(

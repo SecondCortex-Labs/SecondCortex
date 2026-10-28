@@ -8,11 +8,9 @@ import { SnapshotCache } from './capture/snapshotCache';
 import { SemanticFirewall } from './security/firewall';
 import { WorkspaceResurrector } from './executor/workspace';
 import { SidebarProvider } from './webview/sidebar';
-import { ShadowGraphPanel } from './webview/shadowGraphPanel';
 import { BackendClient } from './backendClient';
 import { AuthService } from './auth/authService';
 import { registerDecisionArchaeology } from './decision/decisionHover';
-import { DEMO_MODE, getMockMcpResponse } from './demoMode';
 
 let eventCapture: EventCapture | undefined;
 let snapshotCache: SnapshotCache | undefined;
@@ -158,7 +156,7 @@ async function getRepoRemote(): Promise<string> {
 
 function resolveConfiguredUrl(
     config: vscode.WorkspaceConfiguration,
-    key: 'backendUrl' | 'frontendUrl',
+    key: 'backendUrl',
     fallback: string,
     output: vscode.OutputChannel
 ): string {
@@ -182,22 +180,6 @@ export function activate(context: vscode.ExtensionContext) {
     const outputChannel = vscode.window.createOutputChannel('SecondCortex');
     outputChannel.appendLine('[SecondCortex] Extension activating...');
 
-    // **AZURE OPENAI MIGRATION FIX**: Clear old cached state to force fresh backend fetch
-    // This ensures users see current data instead of snapshots from before migration
-    try {
-        const storageFile = context.globalStorageUri.fsPath;
-        const fs = require('fs');
-        const path = require('path');
-        const cacheFile = path.join(storageFile, 'offline-snapshots.json');
-        if (fs.existsSync(cacheFile)) {
-            fs.unlinkSync(cacheFile);
-            outputChannel.appendLine('[SecondCortex] Cleared old offline snapshot cache on activation.');
-        }
-    } catch (err) {
-        outputChannel.appendLine(`[SecondCortex] Warning: Could not clear snapshot cache: ${err}`);
-    }
-
-    // Configuration
     const config = vscode.workspace.getConfiguration('secondcortex');
     const backendUrl = resolveConfiguredUrl(
         config,
@@ -205,23 +187,12 @@ export function activate(context: vscode.ExtensionContext) {
         'https://sc-backend-suhaan.azurewebsites.net',
         outputChannel
     );
-    const frontendUrl = resolveConfiguredUrl(
-        config,
-        'frontendUrl',
-        'https://sc-frontend-suhaan.azurewebsites.net',
-        outputChannel
-    );
     const debouncerDelayMs = config.get<number>('debouncerDelayMs', 30000);
     const noiseThresholdMs = config.get<number>('noiseThresholdMs', 10000);
     const captureLevel = normalizeCaptureLevel(config.get<string>('captureLevel', 'medium'));
     outputChannel.appendLine(`[SecondCortex] Using backend URL: ${backendUrl}`);
-    outputChannel.appendLine(`[SecondCortex] Using frontend URL: ${frontendUrl}`);
-    if (DEMO_MODE) {
-        outputChannel.appendLine('[SecondCortex] Local deterministic mode active - backend and network actions are bypassed.');
-    }
     outputChannel.appendLine(`[SecondCortex] Snapshot capture level: ${captureLevel}`);
 
-    // Auth
     const authService = new AuthService(context.secrets, outputChannel, backendUrl);
 
     // Services
@@ -364,12 +335,6 @@ export function activate(context: vscode.ExtensionContext) {
     };
 
     const runGitIngest = async (incomingRequest?: Partial<GitIngestCommandRequest>): Promise<void> => {
-        if (DEMO_MODE) {
-            vscode.window.showInformationMessage('SecondCortex: Git ingest completed using local workspace history.');
-            outputChannel.appendLine('[SecondCortex] Git ingest completed locally.');
-            return;
-        }
-
         const fallbackRepoPath = getWorkspaceFolder()?.uri.fsPath || '';
         const requestedRepoPath = String(incomingRequest?.repoPath || fallbackRepoPath || '').trim();
         if (!requestedRepoPath) {
@@ -452,11 +417,6 @@ export function activate(context: vscode.ExtensionContext) {
     };
 
     const resolveProjectForWorkspace = async (promptOnUnresolved: boolean): Promise<void> => {
-        if (DEMO_MODE) {
-            selectedProjectId = 'workspace-project';
-            return;
-        }
-
         const workspaceFolder = getWorkspaceFolder();
         if (!workspaceFolder) {
             selectedProjectId = undefined;
@@ -510,9 +470,7 @@ export function activate(context: vscode.ExtensionContext) {
     snapshotCache = new SnapshotCache(context.globalStorageUri.fsPath, outputChannel);
 
     const resurrector = new WorkspaceResurrector(outputChannel);
-    const shadowGraphPanel = new ShadowGraphPanel(backendClient, resurrector, outputChannel, frontendUrl);
 
-    // Data Capture
     eventCapture = new EventCapture(
         debouncer,
         firewall,
@@ -595,28 +553,10 @@ export function activate(context: vscode.ExtensionContext) {
                 placeHolder: 'e.g., Why did we roll back the payment module?',
             });
             if (question) {
-                if (DEMO_MODE) {
-                    const mcpEnabled = vscode.workspace
-                        .getConfiguration('secondcortex')
-                        .get<boolean>('enableSecondCortexMcp', false);
-                    const response = mcpEnabled
-                        ? getMockMcpResponse(question)
-                        : 'Payment retry was reduced from 5 to 3 after two deterministic test failures.';
-                    outputChannel.appendLine(`[SecondCortex] Answer: ${response}`);
-                    vscode.window.showInformationMessage(`SecondCortex: ${response}`);
-                    return;
-                }
-
                 const response = await backendClient.askQuestion(question);
                 outputChannel.appendLine(`[SecondCortex] Answer: ${JSON.stringify(response)}`);
                 vscode.window.showInformationMessage(`SecondCortex: ${response?.summary || 'No answer available.'}`);
             }
-        })
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('secondcortex.openShadowGraph', async () => {
-            shadowGraphPanel.show();
         })
     );
 
@@ -630,11 +570,6 @@ export function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('secondcortex.selectProject', async () => {
-            if (DEMO_MODE) {
-                selectedProjectId = 'workspace-project';
-                vscode.window.showInformationMessage('SecondCortex: workspace-project selected.');
-                return;
-            }
             await selectProjectInteractive();
         })
     );
@@ -704,12 +639,9 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // Offline sync
-    if (!DEMO_MODE) {
-        snapshotCache.flushToBackend(backendClient).catch((err) => {
-            outputChannel.appendLine(`[SecondCortex] Offline sync error: ${err}`);
-        });
-    }
+    snapshotCache.flushToBackend(backendClient).catch((err) => {
+        outputChannel.appendLine(`[SecondCortex] Offline sync error: ${err}`);
+    });
 
     resolveProjectForWorkspace(true).catch((err) => {
         outputChannel.appendLine(`[SecondCortex] Project resolver startup error: ${err}`);
