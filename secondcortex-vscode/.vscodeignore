@@ -1,6 +1,12 @@
 .vscode/**
 .vscode-test/**
-src/**
 .gitignore
-tsconfig.json
+src/**
+test/**
+out/**
+!out/src/**/*.js
 **/*.map
+**/tsconfig.json
+media/webview.d.ts
+RELEASE.md
+package-lock.json

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}}; script-src {{cspSource}};">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{media}}/sidebar.css">
+    <title>SecondCortex</title>
+</head>
+<body>
+    <p id="empty" class="hint">Ask about your past work. Answers cite the snapshots they draw on. Click a source to open its file.</p>
+    <ol id="transcript" aria-live="polite"></ol>
+    <form id="ask">
+        <textarea id="question" rows="3" placeholder="What was I changing in the auth module yesterday?" required autofocus></textarea>
+        <div class="actions">
+            <button type="submit">Ask</button>
+            <button type="button" id="clear" class="secondary">Clear</button>
+        </div>
+    </form>
+    <script src="{{media}}/sidebar.js"></script>
+</body>
+</html>

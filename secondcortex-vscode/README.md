@@ -1,54 +1,70 @@
 # SecondCortex
 
-**Your AI-Powered Second Brain for Development Context**
+SecondCortex remembers what you were working on, answers questions about it, and takes you back to it. The extension sends snapshots of your editing to a SecondCortex server that runs on your own machine. It has no accounts and no hosted backend.
 
-SecondCortex is a VS Code extension designed to capture and resurrect your development state. It tracks your IDE activity, enforces a Semantic Firewall to protect sensitive data, and allows you to "resurrect" complex workspace setups with a single command.
-Just Adding to test 
-## 🚀 Key Features
+## Start the server
 
-- **Workspace Resurrection Engine**: Restore branch context, stashes, open files, and terminal intent in one flow.
-- **Live Context Capture**: Continuously snapshots editor and terminal activity with debounce and noise filtering.
-- **Secure-By-Default Pipeline**: Semantic Firewall redacts keys, passwords, and sensitive tokens before sync.
-- **Cortex as a Service (MCP)**: Expose your personal Cortex Memory to external AI tools through Model Context Protocol.
-- **SecondCortex Sidebar Chat**: Ask architecture or project-history questions directly inside VS Code.
-- **Session History + New Chat**: Quickly revisit prior conversations or start clean context threads.
-- **Safe Authentication Layer**: Login state uses VS Code SecretStorage for encrypted local token handling.
-- **CLI + Command Palette Support**: Trigger core actions from slash commands, extension commands, or terminal CLI.
+The extension never starts the server. From the `secondcortex-local/` directory of this repository, run:
 
-## 🧠 Cortex as a Service (MCP)
+```sh
+python -m secondcortex serve
+```
 
-SecondCortex is not only an extension UI. It also powers an MCP endpoint from the backend so other AI assistants can query your private development memory.
+The server listens on `http://127.0.0.1:8732`. Its README covers installation, the embedding model download, and the language model settings that `Ask` needs.
 
-What MCP adds:
+While the server is down, the sidebar tells you how to start it. Snapshots wait in a queue that survives restarts, holds up to 500 snapshots, and drops the oldest first. The queue is sent in order when the server returns, when the retry timer fires (every 30 seconds), and when the VS Code window regains focus.
 
-- Reuse the same memory graph outside VS Code chat.
-- Query historical snapshots semantically from MCP-compatible clients.
-- Keep memory access scoped and authenticated with MCP API keys.
+## What a snapshot holds
 
-MCP is served by the backend and exposes tools like `search_memory` for context retrieval across files, branches, and snapshots.
-It also supports hierarchical context tools (`get_codebase_overview`, `get_domain_context`, `get_function_context`, `get_raw_snapshots`) plus `get_related_context` for relationship-based graph traversal so agents can drill down progressively.
-For task-driven prompts, `get_context_for_task_type` returns cached/freshness-aware summaries for `debugging`, `code-review`, `feature-addition`, and `incident-response`.
-Batch 5 introduces Slack-first external ingestion via `ingest_slack_thread` (feature-flagged), and retrieval responses now include lineage/confidence metadata when external evidence participates.
-Batch 6 adds operational MCP tools: `get_mcp_metrics` (latency/counter observability) and `get_mcp_readiness` (runtime dependency readiness checks).
+The extension takes a snapshot 30 seconds after your last edit to a file, and immediately when you save. A save replaces the pending edit snapshot, so one save produces one snapshot. A snapshot records:
 
-Recommended MCP auth setup for local MCP clients (Claude Desktop/Cursor/Copilot bridge):
-- Generate a key from `POST /api/v1/auth/mcp-key` (or scoped keys via `/api/v1/auth/mcp-keys`).
-- Set `SECONDCORTEX_MCP_API_KEY` in the MCP host process environment.
-- Call MCP tools without repeatedly pasting keys in chat prompts.
+- the workspace folder and the file path inside it
+- the git branch, read through VS Code's git extension
+- the language
+- the name of the function, method, or class around your cursor
+- the declaration line of each function, method, and class in the file (up to 20)
+- the last five terminal commands run in this workspace folder (this needs terminal shell integration)
+- about 2,000 characters of whole lines around your cursor
 
-## 🛠️ Getting Started
+Only files in an open workspace folder are captured. Files outside any folder, and files that are not on disk (such as settings or diffs), are skipped.
 
-1. **Install** the extension from the VS Code Marketplace.
-2. **Log In** via the SecondCortex sidebar icon in the Activity Bar.
-3. **Capture**: Work naturally. SecondCortex captures snapshots in the background.
-4. **Resurrect**: 
-   - Type `/resurrect latest` in the SecondCortex Chat.
-   - Or run `cortex resurrect latest` in your terminal.
+## What the server receives
 
-## 🔒 Privacy & Security
+Before a snapshot is queued, the extension replaces secrets with `[REDACTED]` in every field, including the signatures and the terminal commands. It redacts:
 
-SecondCortex is designed with a "Privacy First" approach. Our **Semantic Firewall** ensures that API keys, passwords, and other PII are redacted locally before any data is sent to the backend.
+- known key formats such as Stripe, AWS, GitHub, OpenAI, JWT, private key blocks, Azure connection strings, and bearer tokens
+- any value assigned to a name that contains `key`, `token`, `secret`, `password`, `passwd`, `credential`, or `auth`, in any language
 
-## 📖 License
+The extension never captures `.env`, `.env.*`, anything under a `secrets/` directory, or a file that matches a line of `.cortexignore` at the workspace root. `.cortexignore` uses gitignore-style patterns. A pattern without a slash matches at any depth, a trailing slash matches a directory, and a leading slash anchors the pattern to the workspace root. Negation with `!` is not supported.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+The extension talks only to the server you configured in `secondcortex.backendUrl`. The server sends snapshot text to a language model only when you ask a question, and it sends it to the endpoint set in the server's `SECONDCORTEX_LLM_BASE_URL`. That endpoint is OpenAI unless you point it at a local model such as Ollama.
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `SecondCortex: Ask a Question` | Focuses the sidebar. Answers cite numbered snapshots, and a citation or a source opens its file. The conversation and your unsent draft stay in the view and are never stored on the server. |
+| `SecondCortex: Resurrect Workspace` | Lists the 30 most recent snapshots of the current workspace folder. After you pick one, a confirmation dialog lists the repository, the current and target branch, and the file to open. On confirmation it checks out the branch through VS Code's git integration and opens the file. It runs nothing in a terminal, and git refuses, changing nothing, if local edits conflict. |
+| `SecondCortex: Toggle Capture` | Flips `secondcortex.captureEnabled`. Snapshots already queued are still sent. |
+
+## Settings
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `secondcortex.backendUrl` | `http://127.0.0.1:8732` | The address of the server. The server accepts only the hosts `127.0.0.1` and `localhost`. |
+| `secondcortex.captureEnabled` | `true` | Whether snapshots are taken. |
+| `secondcortex.debouncerDelayMs` | `30000` | Milliseconds after your last edit to a file before its snapshot. The minimum is 1000. |
+
+## Troubleshooting
+
+The `SecondCortex` output channel logs each capture (file and whether an edit or a save caused it), each snapshot the server rejected with its reason, each retry, and each capture error.
+
+If the sidebar says the server is not running, start it with the command above. If it says the server refused the address, change `secondcortex.backendUrl` to use `127.0.0.1` or `localhost`.
+
+## Requirements
+
+VS Code 1.93 or later and a running SecondCortex server. Branch names need VS Code's built-in git extension. Terminal commands need terminal shell integration, which VS Code enables for bash, zsh, fish, and PowerShell by default.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
