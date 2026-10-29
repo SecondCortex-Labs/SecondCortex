@@ -23,8 +23,8 @@ async function main(): Promise<void> {
         await makeWorkspace(workspace, port);
         await runTests({
             vscodeExecutablePath: VSCODE,
-            extensionDevelopmentPath: EXTENSION_ROOT,
-            extensionTestsPath: path.join(__dirname, 'suite.js'),
+            extensionDevelopmentPath: shellSafe(EXTENSION_ROOT),
+            extensionTestsPath: shellSafe(path.join(__dirname, 'suite.js')),
             extensionTestsEnv: { SECONDCORTEX_TEST_URL: `http://127.0.0.1:${port}` },
             // --disable-extensions leaves the built-ins (git, TypeScript language features) on, which the suite relies on.
             launchArgs: [
@@ -43,6 +43,12 @@ async function main(): Promise<void> {
         }
         await rm(temp, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
     }
+}
+
+// @vscode/test-electron 2.5.2 spawns VS Code through the shell on Windows without quoting its arguments,
+// so a path with a space (this repo lives in "SecondCortex Labs") is split into two arguments.
+function shellSafe(p: string): string {
+    return process.platform === 'win32' && p.includes(' ') ? `"${p}"` : p;
 }
 
 function freePort(): Promise<number> {
