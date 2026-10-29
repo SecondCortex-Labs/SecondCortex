@@ -1,6 +1,6 @@
 export const metadata = {
   title: 'SecondCortex - Offline Setup',
-  description: 'Offline deterministic setup options for local SecondCortex demos.',
+  description: 'Run the SecondCortex server on your own machine, with OpenAI or Ollama for answers.',
 };
 
 export default function OfflineSetupPage() {
@@ -11,30 +11,34 @@ export default function OfflineSetupPage() {
           <p className="section-label">Offline Setup</p>
           <h1 className="section-title">Run Fully Local</h1>
           <p className="section-desc">
-            Choose a deterministic local stack for demos. Both options keep data local with no required cloud dependency.
+            The SecondCortex server runs on your machine and keeps your memory there. The two options differ only in which model answers your questions.
           </p>
         </div>
 
         <div className="sc-dashboard-panel">
           <div className="sc-dashboard-panel-inner offline-panel-inner">
-            <h2 className="sc-dashboard-h2">Option 1: Local DB + Azure OpenAI</h2>
-            <p className="sc-dashboard-p">Use a local ChromaDB vector database with Azure OpenAI for model inference.</p>
-            <pre className="query-result offline-code" style={{ whiteSpace: 'pre-wrap' }}>{`# Python backend
-pip install -r requirements.txt
+            <h2 className="sc-dashboard-h2">Option 1: Local memory + OpenAI</h2>
+            <p className="sc-dashboard-p">Storage and search run locally. Only the questions you ask in the sidebar go to OpenAI.</p>
+            <pre className="query-result offline-code" style={{ whiteSpace: 'pre-wrap' }}>{`# Install the server once, from the repo
+cd secondcortex-local
+pip install -e .
 
-# Start local ChromaDB and other services
-docker compose up -d
+# Give it an OpenAI key for answers
+# Windows (PowerShell)
+$env:OPENAI_API_KEY = '<your key>'
+# macOS/Linux
+export OPENAI_API_KEY=<your key>
 
-# Run backend
-uvicorn secondcortex-backend.main:app --reload --port 8000`}</pre>
+# Start it on http://127.0.0.1:8732
+secondcortex serve`}</pre>
             <div className="offline-box">
               <h3 className="offline-subtitle">Installation Instructions</h3>
-              <p className="sc-dashboard-p"><strong>ChromaDB Setup:</strong> ChromaDB runs automatically via Docker Compose. Verify it is running at <a href="http://localhost:8000" target="_blank" rel="noreferrer">http://localhost:8000</a></p>
+              <p className="sc-dashboard-p"><strong>Storage:</strong> ChromaDB runs inside the server and keeps your memory in <code>~/.secondcortex</code>. There is nothing else to start. The first start downloads the local embedding model (about 80 MB).</p>
             </div>
             <div className="offline-box">
               <h3 className="offline-subtitle">Links</h3>
               <div className="offline-link-list">
-                <a href="https://learn.microsoft.com/azure/ai-services/openai/" target="_blank" rel="noreferrer">Azure OpenAI Documentation</a>
+                <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">OpenAI API keys</a>
                 <a href="https://docs.trychroma.com/" target="_blank" rel="noreferrer">ChromaDB Documentation</a>
                 <a href="https://github.com/chroma-core/chroma" target="_blank" rel="noreferrer">ChromaDB GitHub</a>
               </div>
@@ -45,24 +49,23 @@ uvicorn secondcortex-backend.main:app --reload --port 8000`}</pre>
         <div className="sc-dashboard-panel">
           <div className="sc-dashboard-panel-inner offline-panel-inner">
             <h2 className="sc-dashboard-h2">Option 2: Fully Local (ChromaDB + Ollama)</h2>
-            <p className="sc-dashboard-p">Run both storage and model inference locally for a fully offline demo path with zero cloud dependencies.</p>
-            <pre className="query-result offline-code" style={{ whiteSpace: 'pre-wrap' }}>{`# Step 1: Install Ollama locally
+            <p className="sc-dashboard-p">Run storage and answers on your machine, with no cloud dependency at all.</p>
+            <pre className="query-result offline-code" style={{ whiteSpace: 'pre-wrap' }}>{`# Step 1: Install Ollama locally and pull a model
 ollama pull llama3.1
 
-# Step 2: Start Ollama server (runs on http://localhost:11434)
+# Step 2: Start Ollama (runs on http://localhost:11434)
 ollama serve
 
-# Step 3: In a new terminal, start local services
-docker compose up -d
-
-# Step 4: Run backend with local model provider env variable
+# Step 3: In a new terminal, point SecondCortex at Ollama and start it
 # Windows (PowerShell)
-$env:SECOND_CORTEX_MODEL_PROVIDER = 'ollama'
-uvicorn secondcortex-backend.main:app --reload --port 8000
+$env:SECONDCORTEX_LLM_BASE_URL = 'http://localhost:11434/v1'
+$env:SECONDCORTEX_LLM_MODEL = 'llama3.1'
+secondcortex serve
 
 # macOS/Linux
-export SECOND_CORTEX_MODEL_PROVIDER=ollama
-uvicorn secondcortex-backend.main:app --reload --port 8000`}</pre>
+export SECONDCORTEX_LLM_BASE_URL=http://localhost:11434/v1
+export SECONDCORTEX_LLM_MODEL=llama3.1
+secondcortex serve`}</pre>
             <div className="offline-box">
               <h3 className="offline-subtitle">Installation Instructions</h3>
               <div className="sc-dashboard-p">
@@ -73,7 +76,7 @@ uvicorn secondcortex-backend.main:app --reload --port 8000`}</pre>
                   <li>Start the server with <code>ollama serve</code></li>
                   <li>Verify it is running at <a href="http://localhost:11434" target="_blank" rel="noreferrer">http://localhost:11434</a></li>
                 </ol>
-                <p><strong>ChromaDB Setup:</strong> ChromaDB runs automatically via Docker Compose. Verify it is running at <a href="http://localhost:8000" target="_blank" rel="noreferrer">http://localhost:8000</a></p>
+                <p><strong>Storage:</strong> ChromaDB runs inside the SecondCortex server. There is nothing else to start.</p>
               </div>
             </div>
 
