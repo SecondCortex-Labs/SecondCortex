@@ -215,7 +215,9 @@ export function isIgnored(file: string, cortexignore: string): boolean {
         const body = pattern.replace(/^\//, '').replace(/\/$/, '');
         const glob = pattern.endsWith('/') ? `${body}/**` : body;
         const floating = !pattern.startsWith('/') && !body.includes('/');
-        return minimatch(file, floating ? `**/${glob}` : glob, { dot: true });
+        // gitignore has no brace syntax, and a cloned repository can bring its own .cortexignore. Brace
+        // expansion of a hostile pattern is a known denial of service in brace-expansion.
+        return minimatch(file, floating ? `**/${glob}` : glob, { dot: true, nobrace: true });
     });
 }
 

@@ -130,6 +130,14 @@ test('comments, blank lines, and negations are skipped', () => {
     assert.equal(isIgnored('keep.ts', '!keep.ts'), false);
 });
 
+test('braces in a pattern are literal, so a hostile .cortexignore cannot expand them', () => {
+    assert.equal(isIgnored('a.ts', '{a,b}.ts'), false);
+    const hostile = '{a}'.repeat(30) + ',b}';
+    const started = performance.now();
+    isIgnored('src/a.ts', hostile);
+    assert.ok(performance.now() - started < 100);
+});
+
 test('CRLF line endings in .cortexignore are handled', () => {
     assert.equal(isIgnored('ignored.ts', 'other.ts\r\nignored.ts\r\n'), true);
 });
