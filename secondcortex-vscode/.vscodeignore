@@ -3,7 +3,8 @@
 .gitignore
 src/**
 test/**
-out/test/**
+out/**
+!out/src/**/*.js
 **/*.map
 **/tsconfig.json
 media/webview.d.ts
