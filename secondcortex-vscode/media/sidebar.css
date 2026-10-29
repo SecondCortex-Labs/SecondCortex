@@ -1,0 +1,114 @@
+/* Theme colors come from VS Code's --vscode-* variables, so the view follows the user's theme. */
+body {
+    padding: 0 12px 12px;
+    color: var(--vscode-foreground);
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+}
+
+.hint,
+.status {
+    color: var(--vscode-descriptionForeground);
+}
+
+#transcript {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.turn {
+    margin: 12px 0;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--vscode-widget-border, transparent);
+}
+
+.turn p {
+    margin: 6px 0;
+}
+
+.question {
+    font-weight: bold;
+}
+
+/* The answer is plain text, never markup. pre-wrap keeps the model's line breaks. */
+.answer {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.error {
+    color: var(--vscode-errorForeground);
+    overflow-wrap: anywhere;
+}
+
+.pending .status::after {
+    content: '';
+    animation: dots 1.2s steps(4, end) infinite;
+}
+
+@keyframes dots {
+    0% { content: ''; }
+    25% { content: '.'; }
+    50% { content: '..'; }
+    75% { content: '...'; }
+}
+
+.citation,
+.source {
+    padding: 0;
+    color: var(--vscode-textLink-foreground);
+    background: none;
+    font: inherit;
+    text-align: left;
+}
+
+.citation:hover,
+.source:hover {
+    color: var(--vscode-textLink-activeForeground);
+    text-decoration: underline;
+}
+
+.source {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#ask {
+    position: sticky;
+    bottom: 0;
+    padding-top: 8px;
+    background: var(--vscode-sideBar-background);
+}
+
+textarea {
+    box-sizing: border-box;
+    width: 100%;
+    resize: vertical;
+    color: var(--vscode-input-foreground);
+    background: var(--vscode-input-background);
+    border: 1px solid var(--vscode-input-border, transparent);
+    font-family: inherit;
+}
+
+.actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+button {
+    padding: 4px 10px;
+    color: var(--vscode-button-foreground);
+    background: var(--vscode-button-background);
+    border: none;
+    cursor: pointer;
+}
+
+button.secondary {
+    color: var(--vscode-button-secondaryForeground);
+    background: var(--vscode-button-secondaryBackground);
+}
