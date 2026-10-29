@@ -1,84 +1,64 @@
 {
   "name": "secondcortex",
   "displayName": "SecondCortex",
-  "description": "Your AI-Powered Second Brain for Development Context — tracks IDE activity, enforces a Semantic Firewall, and enables Workspace Resurrection.",
-  "version": "0.1.14",
+  "description": "Remembers what you were working on, answers questions about it, and takes you back to it. Talks to a SecondCortex server on your own machine.",
+  "version": "0.2.0",
   "publisher": "secondcortex-labs",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/Syed-Suhaan/SecondCortex-Labs"
   },
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.93.0"
   },
   "icon": "media/icon.png",
   "categories": [
-    "Machine Learning",
-    "Education",
     "Other"
   ],
   "keywords": [
-    "AI",
-    "productivity",
+    "memory",
     "context",
-    "resurrection",
-    "security"
+    "productivity"
   ],
   "activationEvents": [
-    "*",
-    "onUri"
+    "onStartupFinished"
   ],
-  "main": "./out/extension.js",
-  "bin": {
-    "cortex": "./bin/cortex.js"
-  },
+  "main": "./out/src/extension.js",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "secondcortex-sidebar",
+          "id": "secondcortex",
           "title": "SecondCortex",
           "icon": "media/icon.svg"
         }
       ]
     },
     "views": {
-      "secondcortex-sidebar": [
+      "secondcortex": [
         {
           "type": "webview",
-          "id": "secondcortex.chatView",
-          "name": "SecondCortex Chat"
+          "id": "secondcortex.sidebar",
+          "name": "Ask"
         }
       ]
     },
     "commands": [
       {
         "command": "secondcortex.resurrectWorkspace",
-        "title": "SecondCortex: Resurrect Workspace"
+        "title": "Resurrect Workspace",
+        "category": "SecondCortex"
       },
       {
         "command": "secondcortex.askQuestion",
-        "title": "SecondCortex: Ask a Question"
+        "title": "Ask a Question",
+        "category": "SecondCortex"
       },
       {
         "command": "secondcortex.toggleCapture",
-        "title": "SecondCortex: Toggle Context Capture"
-      },
-      {
-        "command": "secondcortex.login",
-        "title": "SecondCortex: Log In"
-      },
-      {
-        "command": "secondcortex.logout",
-        "title": "SecondCortex: Log Out"
-      },
-      {
-        "command": "secondcortex.selectProject",
-        "title": "SecondCortex: Select Project"
-      },
-      {
-        "command": "secondcortex.setCaptureLevel",
-        "title": "SecondCortex: Set Capture Level"
+        "title": "Toggle Capture",
+        "category": "SecondCortex"
       }
     ],
     "configuration": {
@@ -86,54 +66,41 @@
       "properties": {
         "secondcortex.backendUrl": {
           "type": "string",
-          "default": "https://sc-backend-suhaan.azurewebsites.net",
-          "description": "The URL of the SecondCortex Azure backend API."
-        },
-        "secondcortex.debouncerDelayMs": {
-          "type": "number",
-          "default": 30000,
-          "description": "Milliseconds of active editing before a context snapshot is captured."
-        },
-        "secondcortex.noiseThresholdMs": {
-          "type": "number",
-          "default": 10000,
-          "description": "Milliseconds — if a file is closed before this threshold, it is ignored as noise."
+          "default": "http://127.0.0.1:8732",
+          "markdownDescription": "Address of the local SecondCortex server started with `python -m secondcortex serve`. The server accepts only `127.0.0.1` or `localhost`."
         },
         "secondcortex.captureEnabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable or disable automatic context capture."
+          "description": "Take snapshots while you edit and save."
         },
-        "secondcortex.captureLevel": {
-          "type": "string",
-          "enum": ["base", "medium", "full", "ultra"],
-          "default": "medium",
-          "description": "Snapshot fidelity level. Base captures metadata only, medium captures intent signals, full captures active file content, and ultra captures bounded multi-file context."
+        "secondcortex.debouncerDelayMs": {
+          "type": "number",
+          "default": 30000,
+          "minimum": 1000,
+          "description": "Milliseconds after your last edit to a file before a snapshot of it is taken. Saving takes one immediately."
         }
       }
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js",
-    "vsix": "npx @vscode/vsce package --allow-star-activation",
-    "publish:patch": "npx @vscode/vsce publish patch --allow-star-activation",
-    "publish:minor": "npx @vscode/vsce publish minor --allow-star-activation",
-    "publish:major": "npx @vscode/vsce publish major --allow-star-activation"
+    "vscode:prepublish": "npm run compile",
+    "test": "npm run compile && node --test \"out/test/unit/*.test.js\"",
+    "test:integration": "npm run compile && node out/test/integration/run.js",
+    "vsix": "npx @vscode/vsce package",
+    "publish:patch": "npx @vscode/vsce publish patch",
+    "publish:minor": "npx @vscode/vsce publish minor",
+    "publish:major": "npx @vscode/vsce publish major"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
-    "@types/vscode": "^1.85.0",
-    "@typescript-eslint/eslint-plugin": "^7.0.0",
-    "@typescript-eslint/parser": "^7.0.0",
+    "@types/vscode": "~1.93.0",
     "@vscode/test-electron": "^2.3.8",
-    "eslint": "^8.56.0"
+    "typescript": "^5.3.0"
   },
   "dependencies": {
-    "minimatch": "^9.0.0",
-    "typescript": "^5.3.0"
+    "minimatch": "^9.0.0"
   }
 }
