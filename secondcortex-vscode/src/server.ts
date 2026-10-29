@@ -115,8 +115,13 @@ export class LocalServer {
     }
 
     private async post(snapshot: Redacted): Promise<Delivery> {
+        const url = this.url('/snapshots');
+        if (!url) {
+            this.log(invalidUrl(this.baseUrl()));
+            return 'retry';
+        }
         try {
-            const res = await fetch(this.url('/snapshots'), {
+            const res = await fetch(url, {
                 method: 'POST',
                 headers: JSON_HEADERS,
                 body: JSON.stringify(snapshot),
@@ -143,10 +148,14 @@ export class LocalServer {
         timeoutMs: number,
         parse: (body: unknown) => T | undefined,
     ): Promise<Result<T>> {
+        const url = this.url(path);
+        if (!url) {
+            return { ok: false, message: invalidUrl(this.baseUrl()) };
+        }
         let res: Response;
         let text: string;
         try {
-            res = await fetch(this.url(path), { ...init, headers: JSON_HEADERS, signal: AbortSignal.timeout(timeoutMs) });
+            res = await fetch(url, { ...init, headers: JSON_HEADERS, signal: AbortSignal.timeout(timeoutMs) });
             text = await res.text();
         } catch (error) {
             const timedOut = error instanceof Error && error.name === 'TimeoutError';
@@ -164,9 +173,17 @@ export class LocalServer {
         return value === undefined ? { ok: false, message: 'SecondCortex sent an unexpected response.' } : { ok: true, value };
     }
 
-    private url(path: string): URL {
-        return new URL(path, this.baseUrl());
+    private url(path: string): URL | undefined {
+        try {
+            return new URL(path, this.baseUrl());
+        } catch {
+            return undefined;
+        }
     }
+}
+
+function invalidUrl(base: string): string {
+    return `secondcortex.backendUrl is not a valid URL: ${base}`;
 }
 
 function parseJson(text: string): unknown {

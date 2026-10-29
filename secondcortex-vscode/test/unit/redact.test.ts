@@ -39,7 +39,7 @@ const facts = (text: string, cursorLine: number) => ({
 
 const scrubbed = (excerpt: string) => redact(sample({ excerpt })).excerpt;
 
-type Case = readonly [string, string, string];
+type Case = readonly [description: string, input: string, secret: string];
 
 const OLD_REGEX_CASES: readonly Case[] = [
     ['Stripe key', `charge(${JSON.stringify(STRIPE)})`, STRIPE],

@@ -299,10 +299,10 @@ test('ask rejects an answer that is not an answer', async () => {
     assert.ok(!(await open(memoryStorage(), plain.url).ask('anything', undefined)).ok);
 });
 
-test('a malformed backendUrl reads as an unreachable server', async () => {
+test('a malformed backendUrl names the setting instead of blaming the server', async () => {
     const result = await open(memoryStorage(), 'not a url').ask('anything', undefined);
     assert.ok(!result.ok);
-    assert.ok(result.message.includes('python -m secondcortex serve'), result.message);
+    assert.ok(result.message.includes('secondcortex.backendUrl is not a valid URL'), result.message);
 });
 
 test('recent asks for one workspace and a limit and returns snapshots newest first', async () => {
