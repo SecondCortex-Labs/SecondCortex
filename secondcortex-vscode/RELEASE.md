@@ -1,81 +1,68 @@
-# SecondCortex VS Code Extension Release Guide
+# Releasing the SecondCortex VS Code extension
 
-This guide is for publishing `secondcortex` to the VS Code Marketplace.
+This guide covers testing, packaging, and publishing `secondcortex` to the VS Code Marketplace.
 
-## Prerequisites (One-Time)
+## One-time setup
 
-1. Create a publisher at: `https://marketplace.visualstudio.com/manage`
-2. Ensure publisher ID matches `package.json`:
-- `publisher`: `secondcortex-labs`
-3. Install VSCE globally (optional, scripts use `npx`):
-```powershell
-npm install -g @vscode/vsce
-```
-4. Create Azure DevOps PAT with Marketplace scope:
-- Scope required: `Marketplace (Manage)`
+1. Create a publisher at `https://marketplace.visualstudio.com/manage`. Its ID must match `publisher` in `package.json`, which is `secondcortex-labs`.
+2. Create an Azure DevOps personal access token with the `Marketplace (Manage)` scope.
+3. Log in. The npm scripts call `vsce` through `npx`, so a global install is optional.
 
-## One-Time Login
-
-```powershell
-cd "c:\Users\SUHAAN\Desktop\SecondCortex Labs\code\secondcortex-vscode"
-vsce login secondcortex-labs
+```sh
+cd secondcortex-vscode
+npx @vscode/vsce login secondcortex-labs
 ```
 
-When prompted, paste your PAT.
+Paste the token when `vsce` asks for it.
 
-## Preflight Checks
+## Test before you release
 
-```powershell
-npm run compile
+```sh
+npm test
+npm run test:integration
+```
+
+`npm test` compiles the extension, type-checks `media/sidebar.js` against `src/protocol.ts`, and runs the unit tests with `node --test`. It needs no VS Code and no server.
+
+`npm run test:integration` starts a real `python -m secondcortex serve` on a temporary data directory and a free port, opens a temporary git workspace in your installed VS Code, edits and saves files, and checks what the server stored. It needs three things on the machine.
+
+- A Python environment that can run `secondcortex`. The test uses `.venv/Scripts/python.exe` at the repository root. Set `SECONDCORTEX_PYTHON` to use another interpreter.
+- A VS Code install. The test uses `%LOCALAPPDATA%\Programs\Microsoft VS Code\Code.exe`. Set `SECONDCORTEX_VSCODE` to use another executable.
+- The embedding model already downloaded to `~/.cache/chroma`, which the first `python -m secondcortex serve` does. The test makes no network requests.
+
+The run takes about 35 seconds. It starts VS Code with `--disable-extensions`, which leaves the built-in git and TypeScript extensions on.
+
+## Package
+
+```sh
 npm run vsix
+npx @vscode/vsce ls
 ```
 
-If successful, VSIX is created in this folder as `secondcortex-<version>.vsix`.
+`npm run vsix` runs the compile through `vscode:prepublish` and writes `secondcortex-<version>.vsix` in this folder. `vsce ls` prints the files that the package contains. Check that it lists `out/src/*.js`, `media/`, and the runtime dependency `minimatch`, and that it lists no `src/`, `test/`, or `out/test/`. `.vscodeignore` controls the list.
 
-## Publish Commands
+`vsce` refuses to package when `@types/vscode` is newer than `engines.vscode`. Keep the two on the same minor version, which `test/unit/manifest.test.ts` checks.
 
-Use one of:
+## Publish
 
-```powershell
+```sh
 npm run publish:patch
 npm run publish:minor
 npm run publish:major
 ```
 
-- `patch`: bugfix UI/logic updates
-- `minor`: new features
-- `major`: breaking changes
+Use `patch` for fixes, `minor` for new behavior, and `major` for a change that breaks users. Each command bumps `version` in `package.json` and publishes. To choose the version yourself, run `npm version <x.y.z> --no-git-tag-version`, then `npx @vscode/vsce publish`.
 
-## Manual Version Publish (Alternative)
+## Test an installed package
 
-If you want explicit manual versioning in `package.json`:
-
-```powershell
-npm version 0.1.6 --no-git-tag-version
-npx @vscode/vsce publish --allow-star-activation
+```sh
+code --install-extension ./secondcortex-<version>.vsix --force
 ```
 
-## Local Install Test
-
-```powershell
-code --install-extension ".\secondcortex-<version>.vsix" --force
-```
-
-Then run VS Code command: `Developer: Reload Window`.
+Run **Developer: Reload Window**, start the server with `python -m secondcortex serve`, and edit a file. The `SecondCortex` output channel logs each capture.
 
 ## Troubleshooting
 
-- `403` or auth errors:
-  - PAT scope is wrong or expired.
-  - Run `vsce login secondcortex-labs` again.
-- Publish says version already exists:
-  - Bump version and retry.
-- Installed extension looks unchanged:
-  - Ensure version changed.
-  - Reinstall with `--force`.
-  - Reload window.
-
-## Current Build Notes
-
-- Build output is `out/` (required for marketplace package entry `main: ./out/extension.js`).
-- Packaging currently uses `--allow-star-activation` because `activationEvents` includes `*`.
+- A `403` or an authentication error means the token has the wrong scope or has expired. Run `npx @vscode/vsce login secondcortex-labs` again.
+- "Version already exists" means you must bump `version` and publish again.
+- An installed extension that looks unchanged needs a higher `version`, a reinstall with `--force`, and a window reload.
