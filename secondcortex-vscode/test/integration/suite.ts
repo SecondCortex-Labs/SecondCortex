@@ -1,4 +1,3 @@
-// Runs inside the VS Code launched by run.ts. Drives the real editor and asserts on what the real server stored.
 import * as assert from 'node:assert/strict';
 import * as vscode from 'vscode';
 import type { Snapshot } from '../../src/snapshot';
@@ -6,7 +5,7 @@ import { BRANCH, DEBOUNCE_MS, SECRETS, TOKEN_LINE } from './fixture';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Entry point @vscode/test-electron calls; throwing fails the run. Steps run in order and share one workspace. */
+/** Entry point @vscode/test-electron calls; throwing fails the run. */
 export async function run(): Promise<void> {
     const extension = vscode.extensions.getExtension('secondcortex-labs.secondcortex');
     assert.ok(extension, 'the extension under test is loaded');
@@ -28,8 +27,8 @@ async function registersItsCommands(): Promise<void> {
 }
 
 /**
- * Edits src/app.ts and saves at once. The debounce is well above the 1 s bound, so a late duplicate from an
- * uncancelled timer would carry a timestamp later than it and, newest wins, replace the save's record.
+ * The debounce is well above the 1 s bound, so a late duplicate from an uncancelled timer would carry a
+ * timestamp later than it and, newest wins, replace the save's record.
  */
 async function savingTakesOneRedactedSnapshot(folder: vscode.WorkspaceFolder): Promise<void> {
     const doc = await vscode.workspace.openTextDocument(vscode.Uri.joinPath(folder.uri, 'src/app.ts'));
@@ -66,7 +65,6 @@ async function savingTakesOneRedactedSnapshot(folder: vscode.WorkspaceFolder): P
     assert.ok(stamped >= savedAt && stamped <= savedAt + 1_000, `timestamp ${snapshot.timestamp} is the save's, not a later debounce's`);
 }
 
-/** Edits src/other.ts without saving. The snapshot arrives from the timer alone, at least DEBOUNCE_MS after the edit. */
 async function editingTakesASnapshotAfterTheDelay(folder: vscode.WorkspaceFolder): Promise<void> {
     const doc = await vscode.workspace.openTextDocument(vscode.Uri.joinPath(folder.uri, 'src/other.ts'));
     const editor = await vscode.window.showTextDocument(doc);
@@ -80,7 +78,6 @@ async function editingTakesASnapshotAfterTheDelay(folder: vscode.WorkspaceFolder
     assert.ok(snapshot.excerpt.includes('export const question = 7;'), 'the unsaved edit is in the excerpt');
 }
 
-/** Edits and saves ignored.ts, which .cortexignore lists. The earlier steps prove capture works in this same run. */
 async function ignoredFilesAreNeverSent(folder: vscode.WorkspaceFolder): Promise<void> {
     const doc = await vscode.workspace.openTextDocument(vscode.Uri.joinPath(folder.uri, 'ignored.ts'));
     const editor = await vscode.window.showTextDocument(doc);
@@ -92,7 +89,6 @@ async function ignoredFilesAreNeverSent(folder: vscode.WorkspaceFolder): Promise
     assert.deepEqual(all.filter((s) => s.file === 'ignored.ts'), [], 'nothing was stored for the ignored file');
 }
 
-/** GET /snapshots for the workspace, polled until `until` holds or the timeout passes. Returns the last answer. */
 async function storedSnapshots(folder: vscode.WorkspaceFolder, until: (all: Snapshot[]) => boolean, timeoutMs: number): Promise<Snapshot[]> {
     const query = new URLSearchParams({ workspace: folder.uri.toString(), limit: '100' });
     const deadline = Date.now() + timeoutMs;

@@ -1,5 +1,3 @@
-// The extension's only connection to `python -m secondcortex serve`. No vscode import: the outbox policy is
-// tested under `node --test` against a stub HTTP server.
 import { isSnapshot, redact, type Redacted, type Snapshot } from './snapshot';
 
 /** `POST /ask` response. `sources[n - 1]` is the snapshot the answer cites as [n]. */
@@ -8,25 +6,22 @@ export interface Answer {
     readonly sources: readonly Snapshot[];
 }
 
-/** `message` is written for the user: the sidebar and the resurrect command show it as is. */
 export type Result<T> =
     | { readonly ok: true; readonly value: T }
     | { readonly ok: false; readonly message: string };
 
-/** Where the outbox persists. `vscode.Memento` (workspaceState) satisfies it; tests pass a Map-backed fake. */
 export interface Storage {
     get<T>(key: string): T | undefined;
     update(key: string, value: unknown): PromiseLike<void>;
 }
 
 /**
- * What one `POST /snapshots` attempt means for the snapshot at the head of the outbox. A 422 means the
- * snapshot itself is invalid, so resending cannot help and it is dropped. Anything else (unreachable,
- * timeout, 5xx, other 4xx such as a wrong Host) is about the server or its address, so the snapshot is kept.
+ * A 422 means the snapshot itself is invalid, so resending cannot help and it is dropped. Anything else
+ * (unreachable, timeout, 5xx, other 4xx such as a wrong Host) is about the server or its address, so the
+ * snapshot is kept.
  */
 type Delivery = 'delivered' | 'rejected' | 'retry';
 
-/** Versioned so a future shape change starts a fresh queue instead of misreading the old one. */
 const OUTBOX_KEY = 'secondcortex.outbox.v1';
 const OUTBOX_CAP = 500;
 const RETRY_MS = 30_000;
@@ -37,9 +32,7 @@ const ASK_TIMEOUT_MS = 180_000;
 const JSON_HEADERS = { 'content-type': 'application/json' };
 
 export class LocalServer {
-    /** Redacted snapshots not yet accepted by the server, oldest first. Persisted after every change. */
     private queue: readonly Redacted[];
-    /** The one drain in progress, so concurrent flushes never send the same snapshot twice or out of order. */
     private flushing: Promise<void> | undefined;
     private retryTimer: ReturnType<typeof setTimeout> | undefined;
     private disposed = false;
@@ -56,23 +49,17 @@ export class LocalServer {
         this.queue = storage.get<Redacted[]>(OUTBOX_KEY) ?? [];
     }
 
-    /**
-     * The only way a snapshot leaves the extension. Redacts it (the final outbound payload; nothing touches
-     * it afterwards), appends it to the persisted queue, evicting the oldest past 500, and starts a flush.
-     * Returns immediately. Delivery is at least once, which the server's upsert makes safe.
-     */
+    /** Delivery is at least once, which the server's upsert makes safe. */
     deliver(snapshot: Snapshot): void {
         this.queue = [...this.queue, redact(snapshot)].slice(-OUTBOX_CAP);
         void this.storage.update(OUTBOX_KEY, this.queue);
         void this.flush();
     }
 
-    /** Sends queued snapshots in order until the queue is empty or the server is unavailable. Safe to call any time. */
     flush(): Promise<void> {
         return (this.flushing ??= this.drain());
     }
 
-    /** `POST /ask`, scoped to one workspace when given. */
     ask(question: string, workspace: string | undefined): Promise<Result<Answer>> {
         return this.request(
             '/ask',
@@ -87,7 +74,7 @@ export class LocalServer {
         );
     }
 
-    /** `GET /snapshots?workspace=&limit=`, newest first. `limit` is 1 to 100. */
+    /** Newest first. `limit` is 1 to 100. */
     recent(workspace: string, limit: number): Promise<Result<readonly Snapshot[]>> {
         const query = new URLSearchParams({ workspace, limit: String(limit) });
         return this.request(`/snapshots?${query}`, { method: 'GET' }, READ_TIMEOUT_MS, (body) =>
@@ -150,10 +137,6 @@ export class LocalServer {
         }
     }
 
-    /**
-     * Shared by `ask` and `recent`. Turns every failure into one user-facing sentence, so this file holds
-     * the only copy of the start hint.
-     */
     private async request<T>(
         path: string,
         init: RequestInit,
@@ -181,7 +164,6 @@ export class LocalServer {
         return value === undefined ? { ok: false, message: 'SecondCortex sent an unexpected response.' } : { ok: true, value };
     }
 
-    /** Throws on a malformed `backendUrl`; callers treat that like an unreachable server. */
     private url(path: string): URL {
         return new URL(path, this.baseUrl());
     }

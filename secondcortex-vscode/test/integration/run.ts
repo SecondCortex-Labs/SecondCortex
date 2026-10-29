@@ -1,5 +1,3 @@
-// `npm run test:integration`. Starts a real `python -m secondcortex serve` on a temp data dir and a free port,
-// builds a temp git workspace pointed at it, and runs suite.ts inside the locally installed VS Code.
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
@@ -10,7 +8,6 @@ import { BRANCH, DEBOUNCE_MS, FILES } from './fixture';
 
 const EXTENSION_ROOT = path.resolve(__dirname, '../../..');
 const REPO_ROOT = path.resolve(EXTENSION_ROOT, '..');
-/** Overridable; the defaults are the repo's venv and the per-user VS Code install. */
 const PYTHON = process.env.SECONDCORTEX_PYTHON ?? path.join(REPO_ROOT, '.venv', 'Scripts', 'python.exe');
 const VSCODE =
     process.env.SECONDCORTEX_VSCODE ?? path.join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Microsoft VS Code', 'Code.exe');
@@ -48,7 +45,6 @@ async function main(): Promise<void> {
     }
 }
 
-/** Binds port 0, reads the port the OS chose, releases it. */
 function freePort(): Promise<number> {
     return new Promise((resolve, reject) => {
         const probe = createServer();
@@ -60,11 +56,6 @@ function freePort(): Promise<number> {
     });
 }
 
-/**
- * Spawns the server from secondcortex-local, then polls GET /snapshots until it answers. The embedding model
- * loads at startup and must already be in ~/.cache/chroma: the test does no network. Rejects with the
- * server's stderr if it exits first.
- */
 async function startServer(dataDir: string, port: number): Promise<ChildProcess> {
     const server = spawn(PYTHON, ['-m', 'secondcortex', 'serve'], {
         cwd: path.join(REPO_ROOT, 'secondcortex-local'),
@@ -87,9 +78,7 @@ async function startServer(dataDir: string, port: number): Promise<ChildProcess>
             if ((await fetch(`http://127.0.0.1:${port}/snapshots?limit=1`)).ok) {
                 return server;
             }
-        } catch {
-            // Not listening yet.
-        }
+        } catch {}
         await new Promise((resolve) => setTimeout(resolve, 250));
     }
     await stopServer(server);
@@ -110,10 +99,6 @@ async function stopServer(server: ChildProcess): Promise<void> {
     await exited;
 }
 
-/**
- * Writes FILES and `.vscode/settings.json` (backendUrl = the server, debouncerDelayMs = DEBOUNCE_MS), so the
- * extension activates already pointed at the test server. Then git init, one commit, and a checkout of BRANCH.
- */
 async function makeWorkspace(dir: string, port: number): Promise<void> {
     const settings = { 'secondcortex.backendUrl': `http://127.0.0.1:${port}`, 'secondcortex.debouncerDelayMs': DEBOUNCE_MS };
     const files = { ...FILES, '.vscode/settings.json': JSON.stringify(settings) };

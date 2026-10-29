@@ -1,4 +1,3 @@
-// Static guards on the sidebar assets: the old sidebar shipped unescaped innerHTML and no CSP.
 import * as assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as path from 'node:path';

@@ -1,10 +1,8 @@
-// Watches the editor and terminals, decides when to take a snapshot, and reads the facts for it.
 import * as vscode from 'vscode';
 import { repositoryAt } from './git';
 import type { LocalServer } from './server';
 import { buildSnapshot, isIgnored, type CodeSymbol } from './snapshot';
 
-/** Defaults live only in package.json; VS Code returns them when the user set nothing. */
 interface Settings {
     readonly captureEnabled: boolean;
     readonly debouncerDelayMs: number;
@@ -14,9 +12,7 @@ function setting<K extends keyof Settings>(key: K): Settings[K] {
     return vscode.workspace.getConfiguration('secondcortex').get(key) as Settings[K];
 }
 
-/** The last few commands per workspace folder are enough context; older ones are noise. */
 const MAX_COMMANDS = 5;
-/** A language server still starting must not delay a save's snapshot; without symbols it is still useful. */
 const SYMBOLS_TIMEOUT_MS = 3_000;
 const CODE_KINDS: ReadonlySet<vscode.SymbolKind> = new Set([
     vscode.SymbolKind.Function,
@@ -26,15 +22,6 @@ const CODE_KINDS: ReadonlySet<vscode.SymbolKind> = new Set([
 
 type Reason = 'edit' | 'save';
 
-/**
- * Starts capture. An edit (re)starts that document's timer for `debouncerDelayMs`; when it fires, a snapshot
- * is taken. A save cancels the document's timer and takes a snapshot immediately, so one save is one
- * snapshot. Closing a document cancels its timer without a snapshot (unsaved changes were discarded).
- * Turning `captureEnabled` off cancels every timer. Disposing stops everything.
- *
- * All capture state is local to this call: the timers by document URI and the recent terminal commands by
- * workspace folder URI.
- */
 export function startCapture(server: LocalServer, log: (line: string) => void): vscode.Disposable {
     const pending = new Map<string, ReturnType<typeof setTimeout>>();
     const commands = new Map<string, readonly string[]>();
@@ -122,7 +109,6 @@ export function startCapture(server: LocalServer, log: (line: string) => void): 
     );
 }
 
-/** Flips `secondcortex.captureEnabled` at the level where it is set (workspace if overridden there, else user) and says so. */
 export async function toggleCapture(): Promise<void> {
     const config = vscode.workspace.getConfiguration('secondcortex');
     const enabled = !setting('captureEnabled');
@@ -138,11 +124,6 @@ export async function toggleCapture(): Promise<void> {
     );
 }
 
-/**
- * Functions, methods, and classes from `vscode.executeDocumentSymbolProvider`, located by line. Other kinds
- * are dropped but their children kept (a class inside a namespace). Empty when no provider answers within
- * SYMBOLS_TIMEOUT_MS.
- */
 async function codeSymbols(doc: vscode.TextDocument): Promise<CodeSymbol[]> {
     const found = await Promise.race([
         vscode.commands.executeCommand<Array<vscode.DocumentSymbol | vscode.SymbolInformation> | undefined>(
@@ -164,7 +145,6 @@ async function codeSymbols(doc: vscode.TextDocument): Promise<CodeSymbol[]> {
     return convert(found ?? []);
 }
 
-/** `.cortexignore` at the workspace root, read at capture time so edits to it apply without a reload. Empty when absent. */
 async function readCortexIgnore(folder: vscode.WorkspaceFolder): Promise<string> {
     try {
         return new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(folder.uri, '.cortexignore')));
@@ -173,7 +153,6 @@ async function readCortexIgnore(folder: vscode.WorkspaceFolder): Promise<string>
     }
 }
 
-/** Cursor line of a visible editor showing `doc` (the active one first); 0 for a background save. */
 function cursorLine(doc: vscode.TextDocument): number {
     const active = vscode.window.activeTextEditor;
     const editor = active?.document === doc ? active : vscode.window.visibleTextEditors.find((e) => e.document === doc);

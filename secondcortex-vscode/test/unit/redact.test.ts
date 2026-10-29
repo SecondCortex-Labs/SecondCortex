@@ -39,7 +39,6 @@ const facts = (text: string, cursorLine: number) => ({
 
 const scrubbed = (excerpt: string) => redact(sample({ excerpt })).excerpt;
 
-/** [description, input, the secret that must not survive] */
 type Case = readonly [string, string, string];
 
 const OLD_REGEX_CASES: readonly Case[] = [
@@ -55,7 +54,6 @@ const OLD_REGEX_CASES: readonly Case[] = [
     ['OpenAI key', `OpenAI(api=${OPENAI})`, OPENAI],
 ];
 
-/** The cases the deleted TypeScript-AST scrub caught: string literals bound to a secret-like name. */
 const OLD_AST_CASES: readonly Case[] = [
     ['const declaration', 'const stripeKey = "abc123secret";', 'abc123secret'],
     ['let with single quotes', "let myCustomToken = 'xyz123';", 'xyz123'],

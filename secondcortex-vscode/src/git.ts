@@ -1,4 +1,3 @@
-// The one place that touches the built-in git extension. Capture reads the branch, resurrect checks one out.
 import * as vscode from 'vscode';
 
 /**
@@ -25,13 +24,11 @@ interface GitExtension {
     getAPI(version: 1): GitApi;
 }
 
-/** Waiting longer than this for git's first repository scan would hold a save's snapshot hostage. */
 const INIT_TIMEOUT_MS = 10_000;
 
 /**
- * The repository containing `uri` (a file or a workspace folder), or undefined when git is disabled,
- * missing, or `uri` is not in a repository. Waits for the git extension to activate and finish its first
- * repository scan, so a snapshot taken right after startup gets the real branch instead of null.
+ * Waits for the git extension to activate and finish its first repository scan, so a snapshot taken right
+ * after startup gets the real branch instead of null.
  */
 export async function repositoryAt(uri: vscode.Uri): Promise<Repository | undefined> {
     const extension = vscode.extensions.getExtension<GitExtension>('vscode.git');

@@ -7,7 +7,6 @@ import { SidebarView } from './sidebar';
 export function activate(context: vscode.ExtensionContext): void {
     const output = vscode.window.createOutputChannel('SecondCortex');
     const log = (line: string) => output.appendLine(`${new Date().toISOString()} ${line}`);
-    // Constructed synchronously: it loads the persisted queue before any listener can deliver.
     const server = new LocalServer(
         context.workspaceState,
         () => vscode.workspace.getConfiguration('secondcortex').get('backendUrl') as string,

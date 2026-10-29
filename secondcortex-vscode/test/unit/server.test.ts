@@ -1,4 +1,3 @@
-// The outbox and HTTP policy, driven through LocalServer's public methods against a real HTTP stub.
 import * as assert from 'node:assert/strict';
 import { createServer, type IncomingMessage } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -34,7 +33,6 @@ interface Stub {
 interface Reply {
     readonly status: number;
     readonly body?: unknown;
-    /** Sent as is, for the plain-text answers Starlette's host check gives. */
     readonly raw?: string;
 }
 
@@ -46,7 +44,6 @@ afterEach(async () => {
     await Promise.all(stubs.splice(0).map((close) => close()));
 });
 
-/** A local HTTP server answering each request with `respond`; records every request in order. */
 async function stub(respond: (req: IncomingMessage, body: unknown) => Reply | Promise<Reply>): Promise<Stub> {
     const received: Received[] = [];
     const server = createServer((req, res) => {
@@ -69,7 +66,6 @@ async function stub(respond: (req: IncomingMessage, body: unknown) => Reply | Pr
     return { url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, received };
 }
 
-/** An address nothing listens on: connections are refused. */
 async function unreachable(): Promise<string> {
     const probe = createServer();
     await new Promise<void>((resolve) => probe.listen(0, '127.0.0.1', resolve));

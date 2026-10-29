@@ -1,24 +1,14 @@
-// Takes the user back to a snapshot: its branch, then its file. Every change is listed and confirmed first.
 import * as vscode from 'vscode';
 import { repositoryAt, type Repository } from './git';
 import type { LocalServer } from './server';
 import type { Snapshot } from './snapshot';
 
-/**
- * One action resurrect may take. The confirmation text and the execution both come from the same list,
- * so the dialog always shows exactly what will run.
- */
 type Step =
     | { readonly kind: 'checkout'; readonly repo: Repository; readonly branch: string; readonly current: string | undefined }
     | { readonly kind: 'open'; readonly uri: vscode.Uri };
 
 const RECENT_LIMIT = 30;
 
-/**
- * "SecondCortex: Resurrect Workspace". Quick pick of this workspace's recent snapshots (`GET /snapshots`),
- * then one modal confirmation listing every step, then: check out the snapshot's branch through the git
- * extension API when it differs from HEAD, and open its file. No shell, no terminal, no server-made plan.
- */
 export async function resurrect(server: LocalServer): Promise<void> {
     const folder = await pickFolder();
     if (!folder) {
@@ -76,11 +66,6 @@ export async function resurrect(server: LocalServer): Promise<void> {
     }
 }
 
-/**
- * Opens a snapshot's file: `file` joined onto the `workspace` root URI. Used by resurrect and by sidebar
- * source links. Refuses anything that is not a `file:` workspace or that climbs out of it, since both
- * strings come back from the server.
- */
 export async function openSnapshotFile(source: Pick<Snapshot, 'workspace' | 'file'>): Promise<void> {
     let uri: vscode.Uri | undefined;
     try {
@@ -111,7 +96,6 @@ async function openUri(uri: vscode.Uri): Promise<void> {
     }
 }
 
-/** The only folder, or the user's pick in a multi-root workspace. */
 async function pickFolder(): Promise<vscode.WorkspaceFolder | undefined> {
     const folders = vscode.workspace.workspaceFolders ?? [];
     if (folders.length === 0) {

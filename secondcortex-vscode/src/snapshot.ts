@@ -1,4 +1,3 @@
-// What may leave the machine, and in what shape. No vscode import: everything here runs under `node --test`.
 import { minimatch } from 'minimatch';
 
 /**
@@ -11,38 +10,29 @@ export interface Snapshot {
     readonly workspace: string;
     /** Relative to the workspace folder, '/' separators, never empty. */
     readonly file: string;
-    /** Null when HEAD is detached or unborn, or the folder is not in a git repository. */
     readonly branch: string | null;
     /** ISO 8601 with offset; `Date.toISOString()` gives 'Z'. */
     readonly timestamp: string;
     readonly language: string;
-    /** Name of the innermost function, method, or class containing the cursor. */
     readonly symbol: string | null;
-    /** Declaration line of each function, method, and class in document order. */
     readonly signatures: readonly string[];
-    /** The last few terminal commands run in this workspace, oldest first. */
     readonly commands: readonly string[];
-    /** Whole lines around the cursor. */
     readonly excerpt: string;
 }
 
 declare const redactedBrand: unique symbol;
 
-/** A snapshot that went through `redact`. Only `redact` makes one, and the outbox accepts nothing else. */
 export type Redacted = Snapshot & { readonly [redactedBrand]: true };
 
-/** A function, method, or class from the document's symbol provider. */
 export interface CodeSymbol {
     readonly name: string;
     /** Line of the declaration (`selectionRange`), so decorators and doc comments above it are skipped. */
     readonly line: number;
-    /** First and last line of the whole symbol (`range`). */
     readonly start: number;
     readonly end: number;
     readonly children: readonly CodeSymbol[];
 }
 
-/** Everything `buildSnapshot` needs, read from VS Code as plain values. */
 export interface EditorFacts {
     readonly workspace: string;
     readonly file: string;
@@ -60,7 +50,6 @@ const MAX_SIGNATURES = 20;
 const MAX_SIGNATURE_CHARS = 200;
 const MAX_COMMAND_CHARS = 500;
 
-/** Builds the snapshot from unredacted facts. The outbox redacts it, once, as the final payload. */
 export function buildSnapshot(facts: EditorFacts): Snapshot {
     const lines = facts.text.split(/\r?\n/);
     const cursor = Math.min(Math.max(facts.cursorLine, 0), lines.length - 1);
@@ -103,7 +92,6 @@ function excerptAround(lines: readonly string[], cursor: number): string {
     let from = cursor;
     let to = cursor;
     let size = line.length;
-    // Alternates above and below; when one side runs out the other side gets every turn.
     for (let above = true; from > 0 || to < lines.length - 1; above = !above) {
         const next = above ? from - 1 : to + 1;
         if (next < 0 || next >= lines.length) {
@@ -124,10 +112,7 @@ function excerptAround(lines: readonly string[], cursor: number): string {
 
 const REDACTED = '[REDACTED]';
 
-/**
- * Values that are secrets wherever they appear. The first nine come from the old firewall unchanged except
- * where noted; the last catches a private-key body whose BEGIN line fell outside the excerpt.
- */
+/** The last catches a private-key body whose BEGIN line fell outside the excerpt. */
 const SECRET_PATTERNS: readonly RegExp[] = [
     // The END line is optional because the excerpt window may cut it off.
     /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)/g,
@@ -139,46 +124,33 @@ const SECRET_PATTERNS: readonly RegExp[] = [
     // Leading whitespace is [ \t], not \s: `\s*` after every newline of a newline run is quadratic.
     /^[ \t]*[A-Z_]{2,50}=["']?[A-Za-z0-9\-._~+/]{20,}["']?/gm,
     /gh[pousr]_[A-Za-z0-9_]{36,}/g,
-    // Widened from [A-Za-z0-9] to cover `sk-proj-` keys.
     /sk-[A-Za-z0-9_-]{32,}/g,
     /^[A-Za-z0-9+/]{60,}={0,2}$/gm,
 ];
 
 /**
- * The vocabulary of the old TypeScript-AST scrub, so every name it flagged is still flagged. The lookbehind
- * starts a match only at the beginning of an identifier chain, and the lookahead checks for the keyword once
- * so the chain is then consumed without backtracking over each keyword in it. The old form took 407 ms on a
- * 2,000-character run of `ab.key` and 1.1 s on 50,000 characters of `key-`; this one takes about 1 ms.
+ * The lookbehind starts a match only at the beginning of an identifier chain, and the lookahead checks for
+ * the keyword once so the chain is then consumed without backtracking over each keyword in it. The old form
+ * took 407 ms on a 2,000-character run of `ab.key` and 1.1 s on 50,000 characters of `key-`; this one takes
+ * about 1 ms.
  */
 const SECRET_NAME = String.raw`(?<![\w.$-])(?=[\w.$-]*(?:key|token|secret|password|passwd|credential|auth))[\w.$-]+`;
 
 /**
- * A quoted value assigned to a secret-like name, in any language: `const apiKey = "…"`,
- * `const apiKey: string = "…"`, `{ authToken: '…' }`, `"client_secret": "…"`, `def f(password="…")`,
- * `token := "…"`, `'api_key' => '…'`, template literals. Group 1 keeps the name and operator, group 2 is the
- * quote, and the value becomes [REDACTED]. The type annotation takes its spaces from its own character class:
- * a `\s*` beside it made `apiKey:` plus 2,000 spaces take 1.4 s.
+ * The type annotation takes its spaces from its own character class: a `\s*` beside it made `apiKey:` plus
+ * 2,000 spaces take 1.4 s.
  */
 const QUOTED_ASSIGNMENT = new RegExp(
     String.raw`(${SECRET_NAME}["']?\s*(?::[\w.<>\[\]|? ]+?)?(?:=>|:=|=|:)\s*)(["'\x60])((?:\\.|(?!\2)[^\\\n])*)\2`,
     'gi',
 );
 
-/**
- * An unquoted value on a line that is nothing but the assignment: `DB_PASSWORD=hunter2`,
- * `export API_TOKEN=abc123`, `api_key: abc123` (YAML). Booleans and null are left alone. Only [ \t] between
- * tokens, for the same reason as the .env pattern above.
- */
+/** Only [ \t] between tokens, for the same reason as the .env pattern above. */
 const BARE_ASSIGNMENT = new RegExp(
     String.raw`^([ \t]*(?:export[ \t]+|set[ \t]+)?${SECRET_NAME}[ \t]*[=:][ \t]*)(?!(?:true|false|null|none|yes|no)[ \t]*$)([^\s'"\x60#]{4,})[ \t]*$`,
     'gim',
 );
 
-/**
- * Scrubs every string field and array item of the final outbound snapshot. It walks the object's own entries
- * instead of naming fields, so a field added to `Snapshot` is redacted without touching this. Idempotent:
- * `[REDACTED]` matches no rule.
- */
 export function redact(snapshot: Snapshot): Redacted {
     return Object.fromEntries(
         Object.entries(snapshot).map(([key, value]) => [
@@ -197,15 +169,8 @@ function scrub(text: string): string {
         .replace(BARE_ASSIGNMENT, (_match, head: string) => head + REDACTED);
 }
 
-/** Never captured, whatever `.cortexignore` says. */
 const ALWAYS_IGNORED = ['.env', '.env.*', 'secrets/'];
 
-/**
- * True when `file` (workspace-relative, '/' separators) matches a default or a line of `.cortexignore`.
- * Gitignore-style: a pattern without '/' matches at any depth, a trailing '/' matches everything under that
- * directory, a leading '/' anchors to the workspace root. Blank lines, '#' comments, and '!' negations
- * (unsupported) are skipped.
- */
 export function isIgnored(file: string, cortexignore: string): boolean {
     const lines = cortexignore
         .split(/\r?\n/)
@@ -221,7 +186,6 @@ export function isIgnored(file: string, cortexignore: string): boolean {
     });
 }
 
-/** Structural check for snapshots read back from the server. Extra fields such as `id` are allowed. */
 export function isSnapshot(value: unknown): value is Snapshot {
     const v = value as Record<string, unknown> | null;
     const isStrings = (x: unknown) => Array.isArray(x) && x.every((item) => typeof item === 'string');

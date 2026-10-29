@@ -1,13 +1,9 @@
 // @ts-check
-// The sidebar. Every node is built with createElement and textContent, so nothing from the user or the server
-// is ever parsed as markup. test/unit/webview.test.ts fails if this file names a markup-parsing API.
 
 /** @typedef {import('../src/protocol').ToWebview} ToWebview */
 /** @typedef {import('../src/protocol').Source} Source */
 
 /**
- * One question and what became of it. `interrupted` marks a turn still pending when this webview loaded:
- * its extension host may be gone. A late answer with the same id still replaces it.
  * @typedef {{ id: number, question: string } & (
  *   | { state: 'pending' }
  *   | { state: 'interrupted' }
@@ -16,9 +12,8 @@
  * )} Turn
  */
 
-/** The transcript and the unsent draft live only here, in webview state. @typedef {{ turns: Turn[], nextId: number, draft: string }} State */
+/** @typedef {{ turns: Turn[], nextId: number, draft: string }} State */
 
-/** Bounds the state VS Code persists for this view. */
 const MAX_TURNS = 50;
 
 /** @type {WebviewApi<State>} */
@@ -57,7 +52,6 @@ input.addEventListener('input', () => {
 
 clear.addEventListener('click', () => update({ ...state, turns: [] }));
 
-// "SecondCortex: Ask a Question" focuses this view; put the caret in the question box.
 window.addEventListener('focus', () => input.focus());
 
 window.addEventListener('message', (/** @type {MessageEvent<ToWebview>} */ event) => {
@@ -76,7 +70,7 @@ window.addEventListener('message', (/** @type {MessageEvent<ToWebview>} */ event
 
 render();
 
-/** Restores the saved state. Any turn still pending belongs to a previous webview or extension host. */
+/** Any turn still pending belongs to a previous webview or extension host. */
 function load() {
     const saved = vscode.getState() ?? { turns: [], nextId: 1, draft: '' };
     return {
@@ -88,7 +82,6 @@ function load() {
 }
 
 /**
- * Ignores an id with no turn, such as one cleared while its answer was in flight.
  * @param {number} id
  * @param {{ state: 'answered', answer: string, sources: readonly Source[] } | { state: 'failed', message: string }} outcome
  */
@@ -125,11 +118,7 @@ function element(tag, className, text = '') {
     return node;
 }
 
-/**
- * The question, then by state. A failed turn shows the message as sent, which already says how to start the
- * server when that is the problem. Retry asks again under the same id and puts the turn back to pending.
- * @param {Turn} turn
- */
+/** @param {Turn} turn */
 function renderTurn(turn) {
     const item = element('li', `turn ${turn.state}`);
     item.append(element('p', 'question', turn.question));
@@ -166,8 +155,6 @@ function retryButton(turn) {
 }
 
 /**
- * The answer as text, with each "[n]" that has a source turned into a button that opens it. A citation
- * without a source stays plain text.
  * @param {string} answer
  * @param {readonly Source[]} sources
  * @returns {(string | HTMLButtonElement)[]}

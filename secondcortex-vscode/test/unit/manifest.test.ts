@@ -1,4 +1,3 @@
-// Pins the package.json promises users and VS Code depend on.
 import * as assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
