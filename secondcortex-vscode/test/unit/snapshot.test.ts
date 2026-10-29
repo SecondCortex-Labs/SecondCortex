@@ -1,6 +1,6 @@
 import * as assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { buildSnapshot, isIgnored, isSnapshot, type CodeSymbol, type EditorFacts } from '../../src/snapshot';
+import { buildSnapshot, isIgnored, isSnapshot, redact, type CodeSymbol, type EditorFacts } from '../../src/snapshot';
 
 const facts = (over: Partial<EditorFacts>): EditorFacts => ({
     workspace: 'file:///c%3A/work/app',
@@ -78,9 +78,12 @@ test('excerpt at the start of a file keeps growing downward', () => {
     assert.ok(excerpt.length > 1900 && excerpt.length <= 2000);
 });
 
-test('excerpt of one very long line is a slice around the cursor, not empty', () => {
-    const { excerpt } = buildSnapshot(facts({ text: 'a'.repeat(50_000) }));
-    assert.ok(excerpt.length > 0 && excerpt.length <= 2000);
+test('a line longer than the excerpt is left out, so no part of a secret it holds goes out', () => {
+    const secret = 'Zq8vR2mXk4pL9tW7nB3cY6hD1fG5jS0a';
+    const text = `${'x'.repeat(24_990)}token = "${secret}";${'y'.repeat(25_000)}`;
+    const { excerpt } = redact(buildSnapshot(facts({ text })));
+    assert.equal(excerpt, '');
+    assert.ok(!excerpt.includes(secret.slice(0, 8)) && !excerpt.includes(secret.slice(-8)));
 });
 
 test('copies workspace, file, branch, and language and stamps an ISO 8601 timestamp with offset', () => {

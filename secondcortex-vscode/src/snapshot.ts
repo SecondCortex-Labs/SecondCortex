@@ -86,8 +86,8 @@ function preorder(symbols: readonly CodeSymbol[]): CodeSymbol[] {
 function excerptAround(lines: readonly string[], cursor: number): string {
     const line = lines[cursor];
     if (line.length > EXCERPT_CHARS) {
-        const middle = line.length >> 1;
-        return line.slice(middle - EXCERPT_CHARS / 2, middle + EXCERPT_CHARS / 2);
+        // Cutting the line could split a quoted secret, and redaction only matches complete values.
+        return '';
     }
     let from = cursor;
     let to = cursor;
